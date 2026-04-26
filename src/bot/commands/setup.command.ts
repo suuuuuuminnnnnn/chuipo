@@ -54,6 +54,6 @@ export class SetupCommand implements BotCommand {
         { name: '제외 키워드', value: exclude_keywords || '없음' },
       );
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
 }

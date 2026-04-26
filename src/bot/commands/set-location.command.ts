@@ -14,11 +14,11 @@ export class SetLocationCommand implements BotCommand {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!this.db.getUser(interaction.user.id)) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     const location = interaction.options.getString('location', true);
     this.db.upsertUser(interaction.user.id, { location });
-    await interaction.reply({ content: `근무지가 **${location}**(으)로 변경되었습니다.`, ephemeral: true });
+    await interaction.reply({ content: `근무지가 **${location}**(으)로 변경되었습니다.`, flags: 64 });
   }
 }

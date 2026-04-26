@@ -14,14 +14,14 @@ export class ResumeCommand implements BotCommand {
   async execute(interaction: ChatInputCommandInteraction) {
     const user = this.db.getUser(interaction.user.id);
     if (!user) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     if (!user.paused) {
-      await interaction.reply({ content: '이미 활성 상태입니다.', ephemeral: true });
+      await interaction.reply({ content: '이미 활성 상태입니다.', flags: 64 });
       return;
     }
     this.db.upsertUser(interaction.user.id, { paused: 0 });
-    await interaction.reply({ content: '알림이 재개되었습니다.', ephemeral: true });
+    await interaction.reply({ content: '알림이 재개되었습니다.', flags: 64 });
   }
 }

@@ -22,11 +22,11 @@ export class SetRoleCommand implements BotCommand {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!this.db.getUser(interaction.user.id)) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     const role = interaction.options.getString('role', true);
     this.db.upsertUser(interaction.user.id, { role });
-    await interaction.reply({ content: `역할이 **${role}**로 변경되었습니다.`, ephemeral: true });
+    await interaction.reply({ content: `역할이 **${role}**로 변경되었습니다.`, flags: 64 });
   }
 }

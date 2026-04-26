@@ -42,7 +42,7 @@ export class ScanJobsCommand implements BotCommand {
   async execute(interaction: ChatInputCommandInteraction) {
     const user = this.db.getUser(interaction.user.id);
     if (!user) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     await interaction.deferReply();

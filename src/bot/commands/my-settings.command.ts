@@ -14,7 +14,7 @@ export class MySettingsCommand implements BotCommand {
   async execute(interaction: ChatInputCommandInteraction) {
     const user = this.db.getUser(interaction.user.id);
     if (!user) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     const embed = new EmbedBuilder()
@@ -29,6 +29,6 @@ export class MySettingsCommand implements BotCommand {
         { name: '알림 채널', value: `<#${user.alert_channel}>`, inline: true },
         { name: '알림 상태', value: user.paused ? '일시정지' : '활성', inline: true },
       );
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
 }

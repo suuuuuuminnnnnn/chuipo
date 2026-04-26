@@ -17,11 +17,12 @@ export class ScanAppliedCommand implements BotCommand {
     .setDescription('지원 현황을 즉시 조회합니다');
 
   async execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply({ flags: 64 });
+
     if (!this.db.getUser(interaction.user.id)) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.editReply({ content: '먼저 `/setup`을 실행해주세요.' });
       return;
     }
-    await interaction.deferReply({ ephemeral: true });
 
     try {
       const applications = await this.applied.fetchApplications();

@@ -15,13 +15,13 @@ export class SetKeywordsCommand implements BotCommand {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!this.db.getUser(interaction.user.id)) {
-      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', ephemeral: true });
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     const include = interaction.options.getString('include');
     const exclude = interaction.options.getString('exclude');
     if (include === null && exclude === null) {
-      await interaction.reply({ content: 'include 또는 exclude 중 하나 이상을 입력해주세요.', ephemeral: true });
+      await interaction.reply({ content: 'include 또는 exclude 중 하나 이상을 입력해주세요.', flags: 64 });
       return;
     }
     const updates: { include_keywords?: string; exclude_keywords?: string } = {};
@@ -31,6 +31,6 @@ export class SetKeywordsCommand implements BotCommand {
     const parts: string[] = [];
     if (include !== null) parts.push(`포함: **${include || '없음'}**`);
     if (exclude !== null) parts.push(`제외: **${exclude || '없음'}**`);
-    await interaction.reply({ content: `키워드 변경 완료\n${parts.join('\n')}`, ephemeral: true });
+    await interaction.reply({ content: `키워드 변경 완료\n${parts.join('\n')}`, flags: 64 });
   }
 }

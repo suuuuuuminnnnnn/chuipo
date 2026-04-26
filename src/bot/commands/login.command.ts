@@ -16,14 +16,14 @@ export class LoginCommand implements BotCommand {
   async execute(interaction: ChatInputCommandInteraction) {
     const ownerId = process.env.OWNER_DISCORD_ID;
     if (ownerId && interaction.user.id !== ownerId) {
-      await interaction.reply({ content: '이 커맨드는 봇 소유자만 사용할 수 있습니다.', ephemeral: true });
+      await interaction.reply({ content: '이 커맨드는 봇 소유자만 사용할 수 있습니다.', flags: 64 });
       return;
     }
 
     const email = interaction.options.getString('email', true);
     const password = interaction.options.getString('password', true);
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     try {
       await this.session.login(email, password);
