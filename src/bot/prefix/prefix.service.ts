@@ -34,6 +34,7 @@ export class PrefixService {
       case '알림정지': return this.pause(message);
       case '알림재개': return this.resume(message);
       case '로그인': return this.login(message, args);
+      case '명령어':
       case '도움말': await this.help(message); return;
     }
   }
@@ -184,7 +185,7 @@ export class PrefixService {
 
   private async help(message: Message) {
     const embed = new EmbedBuilder()
-      .setTitle('취뽀 명령어 목록')
+      .setTitle('명령어 목록')
       .setColor(0x3498db)
       .addFields(
         {
