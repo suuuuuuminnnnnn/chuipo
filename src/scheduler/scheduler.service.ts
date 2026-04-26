@@ -94,10 +94,7 @@ export class SchedulerService {
     for (const user of users) {
       let fetched;
       try {
-        fetched = await this.jobs.fetchNewJobs(seenIds, {
-          years: user.exp,
-          locations: user.location,
-        });
+        fetched = await this.jobs.fetchNewJobs(seenIds);
       } catch (err) {
         console.error(`[cron:jobs] fetch 실패 (user=${user.discord_id}):`, err);
         continue;

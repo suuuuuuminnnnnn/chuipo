@@ -35,9 +35,6 @@ export class JobsService {
 
   async fetchJobList(params: {
     tagTypeId?: number;
-    role?: string;
-    years?: number;
-    locations?: string;
     offset?: number;
     limit?: number;
   } = {}): Promise<WantedJob[]> {
@@ -45,8 +42,8 @@ export class JobsService {
       country: 'kr',
       tag_type_ids: String(params.tagTypeId || 518),
       job_sort: 'job.latest_order',
-      years: String(params.years ?? -1),
-      locations: params.locations || 'all',
+      years: '-1',
+      locations: 'all',
       limit: String(params.limit || 20),
       offset: String(params.offset || 0),
     });
@@ -62,6 +59,7 @@ export class JobsService {
     }
 
     const json: any = await res.json();
+    console.log('[jobs] 응답 바디:', JSON.stringify(json).slice(0, 300));
     return (json.data || []).map((job: any) => ({
       wanted_job_id: job.id,
       position: job.position,

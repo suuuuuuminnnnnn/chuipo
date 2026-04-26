@@ -49,10 +49,7 @@ export class ScanJobsCommand implements BotCommand {
 
     try {
       const seenIds = this.db.getSeenJobIds();
-      const newJobs = await this.jobs.fetchNewJobs(seenIds, {
-        years: user.exp,
-        locations: user.location,
-      });
+      const newJobs = await this.jobs.fetchNewJobs(seenIds);
 
       if (newJobs.length === 0) {
         await interaction.editReply({ content: '새로운 공고가 없습니다.' });
