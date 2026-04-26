@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, TextChannel } from 'discord.js';
 import { DbService } from '../db/db.service';
 import { AppliedService } from '../wanted/applied.service';
 import { JobsService } from '../wanted/jobs.service';
 import { ScorerService } from '../scorer/scorer.service';
 import { SessionService } from '../wanted/session.service';
+import { BotService } from '../bot/bot.service';
 import { STATUS_COLORS } from '../config/status-colors';
 
 @Injectable()
@@ -16,19 +17,18 @@ export class SchedulerService {
     private readonly applied: AppliedService,
     private readonly jobs: JobsService,
     private readonly scorer: ScorerService,
+    private readonly bot: BotService,
   ) {}
 
-  private async sendToWebhook(payload: { content?: string; embeds?: object[] }) {
-    const url = process.env.WEBHOOK_URL;
-    if (!url) return;
+  private async sendToChannel(payload: { content?: string; embeds?: EmbedBuilder[] }) {
+    const channelId = process.env.ALERT_CHANNEL_ID;
+    if (!channelId) return;
     try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const channel = await this.bot.client.channels.fetch(channelId);
+      if (!channel || !(channel instanceof TextChannel)) return;
+      await channel.send({ content: payload.content, embeds: payload.embeds });
     } catch (err) {
-      console.error('[webhook] 전송 실패:', err);
+      console.error('[channel] 전송 실패:', err);
     }
   }
 
@@ -49,7 +49,7 @@ export class SchedulerService {
       applications = await this.applied.fetchApplications();
     } catch (err: any) {
       if (err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND') {
-        await this.sendToWebhook({
+        await this.sendToChannel({
           content: `<@${owner.discord_id}> Wanted 세션이 만료되었습니다. 세션을 갱신해주세요.`,
         });
       } else {
@@ -72,9 +72,9 @@ export class SchedulerService {
           .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
           .setTimestamp();
 
-        await this.sendToWebhook({
+        await this.sendToChannel({
           content: `<@${owner.discord_id}>`,
-          embeds: [embed.toJSON()],
+          embeds: [embed],
         });
       }
     }
@@ -96,15 +96,14 @@ export class SchedulerService {
     if (newJobs.length === 0) return;
 
     for (const job of newJobs) {
-      const jobInput = {
+      const result = this.scorer.score({
         position: job.position,
         detail_intro: job.detail_intro,
         detail_main_tasks: job.detail_main_tasks,
         detail_requirements: job.detail_requirements,
         detail_preferred: job.detail_preferred,
         skill_tags: job.skill_tags,
-      };
-      const result = this.scorer.score(jobInput);
+      });
       this.db.insertJob({
         wanted_job_id: job.wanted_job_id,
         position: job.position,
@@ -158,11 +157,10 @@ export class SchedulerService {
             { name: '점수', value: `${score}점`, inline: true },
           )
           .setURL(`https://www.wanted.co.kr/wd/${job.wanted_job_id}`)
-          .setTimestamp()
-          .toJSON(),
+          .setTimestamp(),
       );
 
-      await this.sendToWebhook({
+      await this.sendToChannel({
         content: `<@${user.discord_id}> 새 공고 ${userJobs.length}건 (추천: ${backendCount} | 검토: ${reviewCount})`,
         embeds,
       });
