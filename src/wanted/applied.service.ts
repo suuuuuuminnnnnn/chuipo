@@ -24,21 +24,29 @@ export class AppliedService {
         await page.waitForTimeout(2000);
 
         const apiResponse: any = await page.evaluate(async () => {
-          try {
-            const res = await fetch('/api/v4/applications?status=active', {
-              credentials: 'include',
-            });
-            if (res.ok) return await res.json();
-          } catch {}
+          const endpoints = [
+            '/api/v4/applications?limit=100',
+            '/api/v4/applications?status=active&limit=100',
+            '/api/v4/job-applications?limit=100',
+          ];
+          for (const url of endpoints) {
+            try {
+              const res = await fetch(url, { credentials: 'include' });
+              if (res.ok) {
+                const json = await res.json();
+                if (json?.data?.length > 0) return json;
+              }
+            } catch {}
+          }
           return null;
         });
 
-        if (apiResponse?.data) {
+        if (apiResponse?.data?.length > 0) {
           return apiResponse.data.map((item: any) => ({
-            wanted_job_id: item.job?.id || item.id || 0,
-            company_name: item.job?.company?.name || item.company_name || '',
+            wanted_job_id: item.job?.id || item.job_id || item.id || 0,
+            company_name: item.job?.company?.name || item.company?.name || item.company_name || '',
             position: item.job?.position || item.position || '',
-            status: item.status || item.reward_status || '지원완료',
+            status: item.status || item.application_status || '지원완료',
             applied_at: item.created_at,
           }));
         }
