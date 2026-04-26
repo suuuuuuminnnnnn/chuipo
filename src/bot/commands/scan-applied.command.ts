@@ -44,7 +44,7 @@ export class ScanAppliedCommand implements BotCommand {
         return;
       }
 
-      const embeds = changed.slice(0, 10).map(({ app, oldStatus }) =>
+      const buildEmbed = ({ app, oldStatus }: { app: typeof applications[0]; oldStatus: string }) =>
         new EmbedBuilder()
           .setTitle(app.position)
           .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
@@ -53,13 +53,20 @@ export class ScanAppliedCommand implements BotCommand {
             { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
           )
           .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
-          .setTimestamp(),
-      );
+          .setTimestamp();
+
+      const batches: typeof changed[] = [];
+      for (let i = 0; i < changed.length; i += 10) {
+        batches.push(changed.slice(i, i + 10));
+      }
 
       await interaction.editReply({
         content: `${changed.length}건 변경됨`,
-        embeds,
+        embeds: batches[0].map(buildEmbed),
       });
+      for (const batch of batches.slice(1)) {
+        await interaction.followUp({ embeds: batch.map(buildEmbed), flags: 64 });
+      }
     } catch (err: any) {
       if (err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND') {
         await interaction.editReply({ content: '세션이 만료되었습니다. `npm run wanted:login`을 실행해주세요.' });
