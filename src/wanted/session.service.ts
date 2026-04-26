@@ -37,9 +37,23 @@ export class SessionService {
     try {
       await page.goto('https://id.wanted.co.kr/login');
       await page.waitForLoadState('networkidle');
-      await page.fill('input[type="email"], input[name="email"], input[autocomplete="email"], input[autocomplete="username"]', email);
-      await page.fill('input[type="password"], input[name="password"], input[autocomplete="current-password"]', password);
-      await page.click('button[type="submit"], button:has-text("로그인"), button:has-text("Login")');
+
+      const kakaoBtn = page.locator('button:has-text("카카오"), a:has-text("카카오"), [class*="kakao"]').first();
+      const hasKakao = await kakaoBtn.isVisible().catch(() => false);
+
+      if (hasKakao) {
+        await kakaoBtn.click();
+        await page.waitForURL('**/kakao.com/**', { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        await page.fill('input[name="loginId"], input[type="email"]', email);
+        await page.fill('input[name="password"], input[type="password"]', password);
+        await page.click('button[type="submit"]');
+      } else {
+        await page.fill('input[type="email"], input[name="email"], input[autocomplete="email"]', email);
+        await page.fill('input[type="password"], input[name="password"], input[autocomplete="current-password"]', password);
+        await page.click('button[type="submit"], button:has-text("로그인")');
+      }
+
       await page.waitForURL('**/wanted.co.kr/**', { timeout: 60_000 });
       await context.storageState({ path: STATE_FILE });
     } finally {
