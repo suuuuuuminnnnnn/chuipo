@@ -48,11 +48,11 @@ export class ScanJobsCommand implements BotCommand {
     await interaction.deferReply();
 
     try {
-      const seenIds = this.db.getSeenJobIds();
-      const newJobs = await this.jobs.fetchNewJobs(seenIds);
+      // 명령어는 seenIds 무시하고 현재 공고 항상 조회 (cron만 seenIds 사용)
+      const newJobs = await this.jobs.fetchNewJobs(new Set<number>());
 
       if (newJobs.length === 0) {
-        await interaction.editReply({ content: '새로운 공고가 없습니다.' });
+        await interaction.editReply({ content: '공고를 가져오지 못했습니다.' });
         return;
       }
 
@@ -67,25 +67,6 @@ export class ScanJobsCommand implements BotCommand {
           skill_tags: job.skill_tags,
         };
 
-        // DB에는 범용 점수 저장
-        const baseResult = this.scorer.score(jobInput);
-        this.db.insertJob({
-          wanted_job_id: job.wanted_job_id,
-          position: job.position,
-          company_name: job.company_name,
-          location: job.location,
-          annual_from: job.annual_from,
-          annual_to: job.annual_to,
-          detail_intro: job.detail_intro,
-          detail_main_tasks: job.detail_main_tasks,
-          detail_requirements: job.detail_requirements,
-          detail_preferred: job.detail_preferred,
-          skill_tags: job.skill_tags ? JSON.stringify(job.skill_tags) : undefined,
-          score: baseResult.totalScore,
-          classification: baseResult.classification,
-        });
-
-        // 유저에게 표시할 점수는 유저 키워드 반영
         const userResult = this.scorer.scoreForUser(jobInput, {
           techStack: user.tech_stack,
           include: user.include_keywords,

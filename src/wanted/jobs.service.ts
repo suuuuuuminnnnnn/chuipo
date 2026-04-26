@@ -52,6 +52,7 @@ export class JobsService {
     if (!res.ok) throw new Error(`Wanted API 오류: ${res.status}`);
 
     const json: any = await res.json();
+    if (json.data?.[0]) console.log('[jobs] 샘플 공고 필드:', JSON.stringify(json.data[0]).slice(0, 500));
     return (json.data || []).map((job: any) => ({
       wanted_job_id: job.id,
       position: job.position,
