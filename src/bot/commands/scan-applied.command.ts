@@ -31,10 +31,17 @@ export class ScanAppliedCommand implements BotCommand {
         return;
       }
 
-      const changed: { app: typeof applications[0]; oldStatus?: string }[] = [];
+      const changed: { app: typeof applications[0]; oldStatus: string }[] = [];
       for (const app of applications) {
         const result = this.db.upsertAppliedJob(interaction.user.id, app);
-        if (result.changed) changed.push({ app, oldStatus: result.oldStatus });
+        if (result.changed && result.oldStatus) {
+          changed.push({ app, oldStatus: result.oldStatus });
+        }
+      }
+
+      if (changed.length === 0) {
+        await interaction.editReply({ content: '변경 사항이 없습니다.' });
+        return;
       }
 
       const embeds = changed.slice(0, 10).map(({ app, oldStatus }) =>
@@ -43,14 +50,14 @@ export class ScanAppliedCommand implements BotCommand {
           .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
           .addFields(
             { name: '회사', value: app.company_name, inline: true },
-            { name: '상태', value: oldStatus ? `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**` : `**${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
+            { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
           )
           .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
           .setTimestamp(),
       );
 
       await interaction.editReply({
-        content: `총 ${applications.length}건 조회, ${changed.length}건 변경됨`,
+        content: `${changed.length}건 변경됨`,
         embeds,
       });
     } catch (err: any) {
