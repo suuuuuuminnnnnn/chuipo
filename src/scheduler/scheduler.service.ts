@@ -7,7 +7,7 @@ import { JobsService, WantedJobDetail } from '../wanted/jobs.service';
 import { ScorerService } from '../scorer/scorer.service';
 import { SessionService } from '../wanted/session.service';
 import { BotService } from '../bot/bot.service';
-import { STATUS_COLORS } from '../config/status-colors';
+import { STATUS_COLORS, STATUS_LABELS } from '../config/status-colors';
 
 @Injectable()
 export class SchedulerService {
@@ -61,13 +61,15 @@ export class SchedulerService {
     for (const app of applications) {
       const result = this.db.upsertAppliedJob(owner.discord_id, app);
       if (result.changed && result.oldStatus) {
+        const oldLabel = STATUS_LABELS[result.oldStatus] ?? result.oldStatus;
+        const newLabel = STATUS_LABELS[app.status] ?? app.status;
         const embed = new EmbedBuilder()
           .setTitle('지원 현황 업데이트')
           .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
           .addFields(
             { name: '회사', value: app.company_name, inline: true },
             { name: '포지션', value: app.position, inline: true },
-            { name: '상태 변경', value: `${result.oldStatus} → **${app.status}**` },
+            { name: '상태 변경', value: `${oldLabel} → **${newLabel}**` },
           )
           .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
           .setTimestamp();

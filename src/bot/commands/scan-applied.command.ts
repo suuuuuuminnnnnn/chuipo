@@ -3,7 +3,7 @@ import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from '
 import { DbService } from '../../db/db.service';
 import { AppliedService } from '../../wanted/applied.service';
 import { BotCommand } from './base.command';
-import { STATUS_COLORS } from '../../config/status-colors';
+import { STATUS_COLORS, STATUS_LABELS } from '../../config/status-colors';
 
 @Injectable()
 export class ScanAppliedCommand implements BotCommand {
@@ -43,7 +43,7 @@ export class ScanAppliedCommand implements BotCommand {
           .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
           .addFields(
             { name: '회사', value: app.company_name, inline: true },
-            { name: '상태', value: oldStatus ? `${oldStatus} → **${app.status}**` : `**${app.status}**`, inline: true },
+            { name: '상태', value: oldStatus ? `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**` : `**${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
           )
           .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
           .setTimestamp(),
