@@ -37,10 +37,10 @@ export class SessionService {
     try {
       await page.goto('https://id.wanted.co.kr/login');
       await page.waitForLoadState('networkidle');
-      await page.fill('input[type="email"], input[name="email"]', email);
-      await page.fill('input[type="password"], input[name="password"]', password);
-      await page.click('button[type="submit"]');
-      await page.waitForURL('**/wanted.co.kr/**', { timeout: 30_000 });
+      await page.fill('input[type="email"], input[name="email"], input[autocomplete="email"], input[autocomplete="username"]', email);
+      await page.fill('input[type="password"], input[name="password"], input[autocomplete="current-password"]', password);
+      await page.click('button[type="submit"], button:has-text("로그인"), button:has-text("Login")');
+      await page.waitForURL('**/wanted.co.kr/**', { timeout: 60_000 });
       await context.storageState({ path: STATE_FILE });
     } finally {
       await browser.close();
