@@ -39,14 +39,7 @@ export class AppliedService {
       const limit = 100;
 
       while (true) {
-        const qs = new URLSearchParams({
-          user_id: String(userId),
-          sort: '-apply_time,-create_time',
-          limit: String(limit),
-          offset: String(offset),
-          status: 'complete,+pass,+hire,+reject',
-          includes: 'summary',
-        });
+        const qs = `user_id=${userId}&sort=-apply_time,-create_time&limit=${limit}&offset=${offset}&status=complete,+pass,+hire,+reject&includes=summary`;
         const res = await context.request.get(`${BASE}/api/v1/applications?${qs}`, { headers: JSON_HEADERS });
         if (!res.ok()) {
           console.error('[applied] /api/v1/applications 실패:', res.status());

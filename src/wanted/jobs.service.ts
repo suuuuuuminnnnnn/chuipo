@@ -26,6 +26,14 @@ const HEADERS = {
   'Origin': 'https://www.wanted.co.kr',
 };
 
+const ROLE_TAG_IDS: Record<string, number> = {
+  backend: 872,
+  frontend: 507,
+  fullstack: 873,
+  devops: 1024,
+  data: 899,
+};
+
 @Injectable()
 export class JobsService {
   private sleep(ms: number): Promise<void> {
@@ -34,14 +42,16 @@ export class JobsService {
 
   async fetchJobList(params: {
     tagTypeId?: number;
+    role?: string;
     years?: number;
     locations?: string;
     offset?: number;
     limit?: number;
   } = {}): Promise<WantedJob[]> {
+    const tagTypeId = params.tagTypeId || (params.role ? ROLE_TAG_IDS[params.role] : undefined) || 872;
     const qs = new URLSearchParams({
       country: 'kr',
-      tag_type_ids: String(params.tagTypeId || 518),
+      tag_type_ids: String(tagTypeId),
       job_sort: 'job.latest_order',
       years: String(params.years ?? -1),
       locations: params.locations || 'all',

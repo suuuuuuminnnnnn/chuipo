@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { EmbedBuilder, TextChannel } from 'discord.js';
 import { DbService } from '../db/db.service';
 import { AppliedService } from '../wanted/applied.service';
-import { JobsService } from '../wanted/jobs.service';
+import { JobsService, WantedJobDetail } from '../wanted/jobs.service';
 import { ScorerService } from '../scorer/scorer.service';
 import { SessionService } from '../wanted/session.service';
 import { BotService } from '../bot/bot.service';
@@ -85,15 +85,33 @@ export class SchedulerService {
     const users = this.db.getAllActiveUsers();
     if (users.length === 0) return;
 
+    // 유저별 설정(role/location/exp)으로 각각 fetch, job ID로 중복 제거
     const seenIds = this.db.getSeenJobIds();
-    let newJobs;
-    try {
-      newJobs = await this.jobs.fetchNewJobs(seenIds);
-    } catch (err) {
-      console.error('[cron:jobs]', err);
-      return;
+    const allNewJobs = new Map<number, WantedJobDetail>();
+
+    for (const user of users) {
+      let fetched;
+      try {
+        fetched = await this.jobs.fetchNewJobs(seenIds, {
+          role: user.role,
+          years: user.exp,
+          locations: user.location,
+        });
+      } catch (err) {
+        console.error(`[cron:jobs] fetch 실패 (user=${user.discord_id}):`, err);
+        continue;
+      }
+      for (const job of fetched) {
+        if (!allNewJobs.has(job.wanted_job_id)) {
+          allNewJobs.set(job.wanted_job_id, job);
+          seenIds.add(job.wanted_job_id);
+        }
+      }
     }
-    if (newJobs.length === 0) return;
+
+    if (allNewJobs.size === 0) return;
+
+    const newJobs = [...allNewJobs.values()];
 
     for (const job of newJobs) {
       const result = this.scorer.score({
