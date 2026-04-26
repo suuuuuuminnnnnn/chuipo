@@ -20,13 +20,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       if (!interaction.isChatInputCommand()) return;
       try {
         await this.commands.handle(interaction);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.code === 10062) return; // Unknown interaction (토큰 만료)
         console.error(`[bot] 커맨드 오류 (${interaction.commandName}):`, err);
-        const opts = { content: '오류가 발생했습니다.', ephemeral: true };
+        const reply = { content: '오류가 발생했습니다.', flags: 64 };
         if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ content: opts.content }).catch(() => {});
+          await interaction.editReply({ content: reply.content }).catch(() => {});
         } else {
-          await interaction.reply(opts).catch(() => {});
+          await interaction.reply(reply).catch(() => {});
         }
       }
     });
