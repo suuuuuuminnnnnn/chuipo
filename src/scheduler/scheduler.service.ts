@@ -95,7 +95,6 @@ export class SchedulerService {
       let fetched;
       try {
         fetched = await this.jobs.fetchNewJobs(seenIds, {
-          role: user.role,
           years: user.exp,
           locations: user.location,
         });

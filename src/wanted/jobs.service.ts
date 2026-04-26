@@ -26,13 +26,6 @@ const HEADERS = {
   'Origin': 'https://www.wanted.co.kr',
 };
 
-const ROLE_TAG_IDS: Record<string, number> = {
-  backend: 872,
-  frontend: 507,
-  fullstack: 873,
-  devops: 1024,
-  data: 899,
-};
 
 @Injectable()
 export class JobsService {
@@ -48,10 +41,9 @@ export class JobsService {
     offset?: number;
     limit?: number;
   } = {}): Promise<WantedJob[]> {
-    const tagTypeId = params.tagTypeId || (params.role ? ROLE_TAG_IDS[params.role] : undefined) || 872;
     const qs = new URLSearchParams({
       country: 'kr',
-      tag_type_ids: String(tagTypeId),
+      tag_type_ids: String(params.tagTypeId || 518),
       job_sort: 'job.latest_order',
       years: String(params.years ?? -1),
       locations: params.locations || 'all',
@@ -59,8 +51,15 @@ export class JobsService {
       offset: String(params.offset || 0),
     });
 
-    const res = await fetch(`${BASE_URL}/jobs?${qs}`, { headers: HEADERS });
-    if (!res.ok) throw new Error(`Wanted API 오류: ${res.status}`);
+    const url = `${BASE_URL}/jobs?${qs}`;
+    console.log('[jobs] 요청 URL:', url);
+    const res = await fetch(url, { headers: HEADERS });
+    console.log('[jobs] 응답 상태:', res.status);
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[jobs] 응답 바디:', body.slice(0, 300));
+      throw new Error(`Wanted API 오류: ${res.status}`);
+    }
 
     const json: any = await res.json();
     return (json.data || []).map((job: any) => ({

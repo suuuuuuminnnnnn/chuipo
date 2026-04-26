@@ -50,7 +50,6 @@ export class ScanJobsCommand implements BotCommand {
     try {
       const seenIds = this.db.getSeenJobIds();
       const newJobs = await this.jobs.fetchNewJobs(seenIds, {
-        role: user.role,
         years: user.exp,
         locations: user.location,
       });
