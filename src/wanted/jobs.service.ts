@@ -19,6 +19,13 @@ export interface WantedJobDetail extends WantedJob {
 
 const BASE_URL = 'https://www.wanted.co.kr/api/v4';
 
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Referer': 'https://www.wanted.co.kr/',
+  'Origin': 'https://www.wanted.co.kr',
+};
+
 @Injectable()
 export class JobsService {
   private sleep(ms: number): Promise<void> {
@@ -42,7 +49,7 @@ export class JobsService {
       offset: String(params.offset || 0),
     });
 
-    const res = await fetch(`${BASE_URL}/jobs?${qs}`);
+    const res = await fetch(`${BASE_URL}/jobs?${qs}`, { headers: HEADERS });
     if (!res.ok) throw new Error(`Wanted API 오류: ${res.status}`);
 
     const json: any = await res.json();
@@ -57,7 +64,7 @@ export class JobsService {
   }
 
   async fetchJobDetail(jobId: number): Promise<WantedJobDetail> {
-    const res = await fetch(`${BASE_URL}/jobs/${jobId}`);
+    const res = await fetch(`${BASE_URL}/jobs/${jobId}`, { headers: HEADERS });
     if (!res.ok) throw new Error(`Wanted 상세 조회 오류: ${res.status}`);
 
     const json: any = await res.json();
