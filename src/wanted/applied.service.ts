@@ -16,41 +16,41 @@ export class AppliedService {
   async fetchApplications(): Promise<ApplicationStatus[]> {
     return this.session.withSession(async (context) => {
       const page = await context.newPage();
-      const allApplications: any[] = [];
-      let capturedTotal = 0;
-
-      page.on('response', async (response) => {
-        const url = response.url();
-        if (url.includes('/api/v1/applications') && response.status() === 200) {
-          try {
-            const json = await response.json();
-            if (Array.isArray(json.applications)) {
-              allApplications.push(...json.applications);
-              capturedTotal = json.total ?? json.applications.length;
-            }
-          } catch {}
-        }
-      });
-
       try {
-        await page.goto('https://www.wanted.co.kr/status/applications', {
-          waitUntil: 'networkidle',
-          timeout: 30_000,
-        });
-        await page.waitForTimeout(3000);
+        const [response] = await Promise.all([
+          page.waitForResponse(
+            (r) => r.url().includes('/api/v1/applications') && r.status() === 200,
+            { timeout: 30_000 },
+          ),
+          page.goto('https://www.wanted.co.kr/status/applications', {
+            waitUntil: 'networkidle',
+            timeout: 30_000,
+          }),
+        ]);
 
-        if (allApplications.length > 0 && allApplications.length < capturedTotal) {
-          const remaining = Math.ceil((capturedTotal - allApplications.length) / 10);
-          for (let p = 2; p <= remaining + 1; p++) {
-            await page.goto(
-              `https://www.wanted.co.kr/status/applications/applied?page=${p}&offset=${(p - 1) * 10}&limit=10`,
-              { waitUntil: 'networkidle', timeout: 30_000 },
-            );
-            await page.waitForTimeout(2000);
+        const json: any = await response.json();
+        const applications: any[] = json.applications ?? [];
+        const total: number = json.total ?? applications.length;
+
+        if (applications.length < total) {
+          const pages = Math.ceil((total - applications.length) / 10);
+          for (let p = 2; p <= pages + 1; p++) {
+            const [pageRes] = await Promise.all([
+              page.waitForResponse(
+                (r) => r.url().includes('/api/v1/applications') && r.status() === 200,
+                { timeout: 15_000 },
+              ),
+              page.goto(
+                `https://www.wanted.co.kr/status/applications/applied?page=${p}&offset=${(p - 1) * 10}&limit=10`,
+                { waitUntil: 'networkidle', timeout: 15_000 },
+              ),
+            ]);
+            const pageJson: any = await pageRes.json();
+            applications.push(...(pageJson.applications ?? []));
           }
         }
 
-        return allApplications.map((item: any) => ({
+        return applications.map((item: any) => ({
           wanted_job_id: item.job_id || item.job?.id || 0,
           company_name: item.company_name || item.job?.company_name || '',
           position: item.job?.position || '',
