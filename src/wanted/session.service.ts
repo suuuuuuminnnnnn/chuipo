@@ -15,13 +15,11 @@ export class SessionService {
   async isSessionValid(context: BrowserContext): Promise<boolean> {
     const page = await context.newPage();
     try {
-      const response = await page.goto('https://www.wanted.co.kr/api/v4/me', {
+      await page.goto('https://www.wanted.co.kr/profile', {
         waitUntil: 'domcontentloaded',
         timeout: 15_000,
       });
-      if (!response) return false;
-      if (page.url().includes('id.wanted.co.kr')) return false;
-      return response.status() === 200;
+      return !page.url().includes('id.wanted.co.kr');
     } catch {
       return false;
     } finally {
