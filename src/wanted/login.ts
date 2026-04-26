@@ -9,10 +9,11 @@ const STATE_FILE = path.join(SESSION_DIR, 'state.json');
 async function login() {
   const email = process.env.WANTED_EMAIL;
   const password = process.env.WANTED_PASSWORD;
+  const headless = !!(email && password);
 
   if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless });
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -21,19 +22,21 @@ async function login() {
   await page.waitForLoadState('networkidle');
 
   if (email && password) {
+    console.log('자격증명으로 자동 로그인 시도 중...');
     try {
       await page.fill('input[type="email"], input[name="email"]', email);
       await page.fill('input[type="password"], input[name="password"]', password);
       await page.click('button[type="submit"]');
     } catch {
-      console.log('자동 입력 실패. 브라우저에서 직접 로그인해주세요.');
+      console.error('자동 입력 실패. WANTED_EMAIL/WANTED_PASSWORD를 확인해주세요.');
+      await browser.close();
+      process.exit(1);
     }
   } else {
-    console.log('브라우저에서 직접 로그인해주세요.');
+    console.log('브라우저에서 직접 로그인해주세요. (2FA 포함)');
   }
 
-  console.log('로그인 완료 대기 중... (2FA가 필요하면 브라우저에서 직접 완료해주세요)');
-
+  console.log('로그인 완료 대기 중...');
   try {
     await page.waitForURL('**/wanted.co.kr/**', { timeout: 120_000 });
   } catch {

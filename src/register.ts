@@ -25,8 +25,7 @@ const commands: (SlashCommandBuilder | SlashCommandOptionsOnlyBuilder)[] = [
     .addStringOption((o) => o.setName('include_keywords').setDescription('포함할 키워드 (쉼표 구분)'))
     .addStringOption((o) => o.setName('exclude_keywords').setDescription('제외할 키워드 (쉼표 구분)'))
     .addStringOption((o) => o.setName('location').setDescription('희망 근무지'))
-    .addIntegerOption((o) => o.setName('exp').setDescription('경력 연수 (0=신입)').setMinValue(0).setMaxValue(20))
-    .addChannelOption((o) => o.setName('alert_channel').setDescription('알림 채널')),
+    .addIntegerOption((o) => o.setName('exp').setDescription('경력 연수 (0=신입)').setMinValue(0).setMaxValue(20)),
 
   new SlashCommandBuilder()
     .setName('set-role').setDescription('희망 직군을 변경합니다')
