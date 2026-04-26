@@ -22,8 +22,9 @@ const commands: (SlashCommandBuilder | SlashCommandOptionsOnlyBuilder)[] = [
         { name: 'Data', value: 'data' },
       ),
     )
-    .addStringOption((o) => o.setName('include_keywords').setDescription('포함할 키워드 (쉼표 구분)'))
-    .addStringOption((o) => o.setName('exclude_keywords').setDescription('제외할 키워드 (쉼표 구분)'))
+    .addStringOption((o) => o.setName('tech_stack').setDescription('선호 기술 스택 - 없으면 제외 (예: node.js,nestjs,typescript)'))
+    .addStringOption((o) => o.setName('include_keywords').setDescription('포함 시 점수 보너스 키워드 (쉼표 구분)'))
+    .addStringOption((o) => o.setName('exclude_keywords').setDescription('포함 시 무조건 제외 키워드 (쉼표 구분)'))
     .addStringOption((o) => o.setName('location').setDescription('희망 근무지'))
     .addIntegerOption((o) => o.setName('exp').setDescription('경력 연수 (0=신입)').setMinValue(0).setMaxValue(20)),
 
