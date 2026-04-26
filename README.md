@@ -4,9 +4,9 @@ Wanted 채용 플랫폼 연동 Discord 봇. 지원 현황을 자동으로 추적
 
 ## 기능
 
-- **지원 현황 추적**: Wanted 지원 목록을 주기적으로 스크래핑, 상태 변경 시 웹훅 알림
-- **공고 수집 & 점수화**: 기술 키워드 기반으로 공고를 `BACKEND` / `REVIEW` / `REJECT`로 분류
-- **사용자별 설정**: Discord 슬래시 커맨드로 역할, 키워드, 위치, 경력 등 개인 설정
+- **지원 현황 추적**: Wanted 지원 목록을 주기적으로 스크래핑, 상태 변경 시 Discord 알림
+- **공고 수집 & 점수화**: 기술 키워드 기반으로 공고를 `추천` / `검토` / `제외`로 분류
+- **사용자별 설정**: `!` 접두사 한글 명령어로 역할, 기술 스택, 위치, 경력 등 개인 설정
 - **크론 자동화**: 지원 현황 30분, 공고 수집 2시간 주기 (환경변수로 변경 가능)
 
 ## 스택
@@ -26,10 +26,10 @@ cp .env.example .env
 |------|------|------|
 | `DISCORD_TOKEN` | ✅ | Discord 봇 토큰 |
 | `DISCORD_CLIENT_ID` | ✅ | Discord 애플리케이션 ID |
-| `OWNER_DISCORD_ID` | ✅ | Wanted 세션 소유자 Discord ID (지원 현황 추적 대상) |
-| `WEBHOOK_URL` | ✅ | 알림을 받을 Discord 웹훅 URL |
-| `WANTED_EMAIL` | 선택 | Wanted 계정 이메일 (서버 headless 로그인용) |
-| `WANTED_PASSWORD` | 선택 | Wanted 계정 비밀번호 (서버 headless 로그인용) |
+| `OWNER_DISCORD_ID` | ✅ | 지원 현황 크론 추적 대상 Discord ID |
+| `ALERT_CHANNEL_ID` | ✅ | 알림을 받을 Discord 채널 ID |
+| `WANTED_EMAIL` | 선택 | Wanted 계정 이메일 (`!로그인` 대신 자동 로그인용) |
+| `WANTED_PASSWORD` | 선택 | Wanted 계정 비밀번호 |
 | `CRON_APPLIED_SCHEDULE` | 선택 | 지원 현황 크론 스케줄 (기본: `*/30 * * * *`) |
 | `CRON_JOBS_SCHEDULE` | 선택 | 공고 수집 크론 스케줄 (기본: `0 */2 * * *`) |
 | `SCORE_THRESHOLD_HIGH` | 선택 | 백엔드 분류 임계값 (기본: `5`) |
@@ -76,15 +76,36 @@ npm run dev
 npm run build && npm start
 ```
 
-## Discord 웹훅 설정
+## 명령어
 
-Discord 채널 설정 → 연동 → 웹훅 → 새 웹훅 → URL 복사 → `.env`의 `WEBHOOK_URL`에 입력.
+### `!` 접두사 명령어 (권장)
 
-## 슬래시 커맨드
+> Discord Dev Portal → Bot → **Message Content Intent** 활성화 필요
+
+| 명령어 | 설명 |
+|--------|------|
+| `!도움말` | 명령어 목록 확인 |
+| `!설정 [직군] [기술스택] [위치] [경력]` | 초기 설정 |
+| `!내설정` | 현재 설정 확인 |
+| `!지원현황` | 지원 상태 변경 즉시 조회 |
+| `!공고조회` | 공고 수집 & 점수화 |
+| `!알림정지` | 자동 알림 일시정지 |
+| `!알림재개` | 자동 알림 재개 |
+| `!로그인 이메일 비밀번호` | Wanted 세션 저장 (DM 권장) |
+
+**설정 예시:**
+```
+!설정 backend kotlin,spring 서울 3
+```
+- 직군: `backend` / `frontend` / `fullstack` / `devops` / `data`
+- 기술스택: 하나도 없으면 공고 제외 (쉼표로 구분)
+- 경력: 숫자 (0 = 신입)
+
+### 슬래시 커맨드
 
 | 커맨드 | 설명 |
 |--------|------|
-| `/setup` | 초기 설정 (역할, 키워드, 위치, 경력) |
+| `/setup` | 초기 설정 |
 | `/set-role` | 희망 직군 변경 |
 | `/set-keywords` | 포함/제외 키워드 변경 |
 | `/set-location` | 희망 근무지 변경 |

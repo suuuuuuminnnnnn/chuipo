@@ -9,14 +9,6 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../config/status-colors';
 
 const PREFIX = '!';
 
-const HELP = `**사용 가능한 명령어**
-\`!설정\` - 초기 설정 (예: \`!설정 backend kotlin,spring 서울 3\`)
-\`!내설정\` - 현재 설정 확인
-\`!지원현황\` - 지원 상태 변경 조회
-\`!공고조회\` - 공고 수집 및 점수화
-\`!알림정지\` - 알림 일시정지
-\`!알림재개\` - 알림 재개
-\`!로그인 이메일 비밀번호\` - Wanted 로그인`;
 
 @Injectable()
 export class PrefixService {
@@ -42,7 +34,7 @@ export class PrefixService {
       case '알림정지': return this.pause(message);
       case '알림재개': return this.resume(message);
       case '로그인': return this.login(message, args);
-      case '도움말': await message.reply(HELP); return;
+      case '도움말': await this.help(message); return;
     }
   }
 
@@ -188,6 +180,43 @@ export class PrefixService {
       console.error('[prefix:공고조회]', err);
       await loading.edit('공고 수집 중 오류가 발생했습니다.');
     }
+  }
+
+  private async help(message: Message) {
+    const embed = new EmbedBuilder()
+      .setTitle('취뽀 명령어 목록')
+      .setColor(0x3498db)
+      .addFields(
+        {
+          name: '⚙️ 설정',
+          value: [
+            '`!설정 [직군] [기술스택] [위치] [경력]` — 초기 설정',
+            '> 예: `!설정 backend kotlin,spring 서울 3`',
+            '> 직군: backend / frontend / fullstack / devops / data',
+            '`!내설정` — 현재 설정 확인',
+          ].join('\n'),
+        },
+        {
+          name: '🔍 조회',
+          value: [
+            '`!지원현황` — 지원 상태 변경 확인',
+            '`!공고조회` — 조건에 맞는 공고 수집 & 점수화',
+          ].join('\n'),
+        },
+        {
+          name: '🔔 알림',
+          value: [
+            '`!알림정지` — 자동 알림 일시정지',
+            '`!알림재개` — 자동 알림 재개',
+          ].join('\n'),
+        },
+        {
+          name: '🔑 로그인',
+          value: '`!로그인 이메일 비밀번호` — Wanted 세션 저장\n> 비밀번호가 노출될 수 있으니 DM에서 사용 권장',
+        },
+      )
+      .setFooter({ text: '크론: 지원현황 30분 / 공고수집 2시간 자동 실행' });
+    await message.reply({ embeds: [embed] });
   }
 
   private async pause(message: Message) {
