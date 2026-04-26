@@ -16,66 +16,47 @@ export class AppliedService {
   async fetchApplications(): Promise<ApplicationStatus[]> {
     return this.session.withSession(async (context) => {
       const page = await context.newPage();
+      const allApplications: any[] = [];
+      let capturedTotal = 0;
+
+      page.on('response', async (response) => {
+        const url = response.url();
+        if (url.includes('/api/v1/applications') && response.status() === 200) {
+          try {
+            const json = await response.json();
+            if (Array.isArray(json.applications)) {
+              allApplications.push(...json.applications);
+              capturedTotal = json.total ?? json.applications.length;
+            }
+          } catch {}
+        }
+      });
+
       try {
         await page.goto('https://www.wanted.co.kr/status/applications', {
           waitUntil: 'networkidle',
           timeout: 30_000,
         });
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
 
-        const apiResponse: any = await page.evaluate(async () => {
-          try {
-            const res = await fetch('/api/v4/applications?status=active', {
-              credentials: 'include',
-            });
-            if (res.ok) return await res.json();
-          } catch {}
-          return null;
-        });
-
-        if (apiResponse?.data) {
-          return apiResponse.data.map((item: any) => ({
-            wanted_job_id: item.job?.id || item.id || 0,
-            company_name: item.job?.company?.name || item.company_name || '',
-            position: item.job?.position || item.position || '',
-            status: item.status || item.reward_status || '지원완료',
-            applied_at: item.created_at,
-          }));
+        if (allApplications.length > 0 && allApplications.length < capturedTotal) {
+          const remaining = Math.ceil((capturedTotal - allApplications.length) / 10);
+          for (let p = 2; p <= remaining + 1; p++) {
+            await page.goto(
+              `https://www.wanted.co.kr/status/applications/applied?page=${p}&offset=${(p - 1) * 10}&limit=10`,
+              { waitUntil: 'networkidle', timeout: 30_000 },
+            );
+            await page.waitForTimeout(2000);
+          }
         }
 
-        const items = await page.$$eval(
-          '[class*="Application"], [class*="application"], [class*="StatusItem"]',
-          (els) =>
-            els.map((el) => {
-              const getText = (selectors: string[]) => {
-                for (const s of selectors) {
-                  const node = el.querySelector(s);
-                  if (node?.textContent?.trim()) return node.textContent.trim();
-                }
-                return '';
-              };
-              return {
-                company_name: getText(['[class*="company"]', '[class*="Company"]']),
-                position: getText(['[class*="position"]', '[class*="Position"]', '[class*="title"]']),
-                status: getText(['[class*="status"]', '[class*="Status"]', '[class*="badge"]']),
-                link: (el.querySelector('a') as HTMLAnchorElement | null)?.href || '',
-              };
-            }),
-        );
-
-        if (items.length === 0) {
-          console.warn('[applied] DOM scraping returned empty - page structure may have changed');
-        }
-
-        return items.map((item) => {
-          const idMatch = item.link.match(/\/wd\/(\d+)/);
-          return {
-            wanted_job_id: idMatch ? parseInt(idMatch[1]) : 0,
-            company_name: item.company_name,
-            position: item.position,
-            status: item.status || '지원완료',
-          };
-        });
+        return allApplications.map((item: any) => ({
+          wanted_job_id: item.job_id || item.job?.id || 0,
+          company_name: item.company_name || item.job?.company_name || '',
+          position: item.job?.position || '',
+          status: item.status || '지원완료',
+          applied_at: item.create_time,
+        }));
       } finally {
         await page.close();
       }

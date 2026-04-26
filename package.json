@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Wanted 채용 플랫폼 연동 Discord 봇 - 지원 현황 추적 & 공고 점수화",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
