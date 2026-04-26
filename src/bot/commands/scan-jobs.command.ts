@@ -48,8 +48,8 @@ export class ScanJobsCommand implements BotCommand {
     await interaction.deferReply();
 
     try {
-      // 명령어는 seenIds 무시하고 현재 공고 항상 조회 (cron만 seenIds 사용)
-      const newJobs = await this.jobs.fetchNewJobs(new Set<number>());
+      // 명령어는 seenIds 무시하고 현재 공고 조회 (cron만 seenIds 사용), 최대 100개
+      const newJobs = await this.jobs.fetchNewJobs(new Set<number>(), { limit: 100 });
 
       if (newJobs.length === 0) {
         await interaction.editReply({ content: '공고를 가져오지 못했습니다.' });
