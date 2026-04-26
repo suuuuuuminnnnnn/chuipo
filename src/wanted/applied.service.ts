@@ -17,40 +17,49 @@ export class AppliedService {
     return this.session.withSession(async (context) => {
       const page = await context.newPage();
       try {
-        const [response] = await Promise.all([
-          page.waitForResponse(
-            (r) => r.url().includes('/api/v1/applications') && r.status() === 200,
-            { timeout: 30_000 },
-          ),
-          page.goto('https://www.wanted.co.kr/status/applications', {
-            waitUntil: 'networkidle',
-            timeout: 30_000,
-          }),
-        ]);
+        await page.goto('https://www.wanted.co.kr', {
+          waitUntil: 'domcontentloaded',
+          timeout: 20_000,
+        });
 
-        const json: any = await response.json();
-        const applications: any[] = json.applications ?? [];
-        const total: number = json.total ?? applications.length;
+        const result: any = await page.evaluate(async () => {
+          const meRes = await fetch('/api/v4/me', { credentials: 'include' });
+          if (!meRes.ok) return { error: 'me_failed', status: meRes.status };
+          const me = await meRes.json();
+          const userId = me?.id || me?.user?.id;
+          if (!userId) return { error: 'no_user_id', me };
 
-        if (applications.length < total) {
-          const pages = Math.ceil((total - applications.length) / 10);
-          for (let p = 2; p <= pages + 1; p++) {
-            const [pageRes] = await Promise.all([
-              page.waitForResponse(
-                (r) => r.url().includes('/api/v1/applications') && r.status() === 200,
-                { timeout: 15_000 },
-              ),
-              page.goto(
-                `https://www.wanted.co.kr/status/applications/applied?page=${p}&offset=${(p - 1) * 10}&limit=10`,
-                { waitUntil: 'networkidle', timeout: 15_000 },
-              ),
-            ]);
-            const pageJson: any = await pageRes.json();
-            applications.push(...(pageJson.applications ?? []));
+          const all: any[] = [];
+          let offset = 0;
+          const limit = 100;
+
+          while (true) {
+            const qs = new URLSearchParams({
+              user_id: String(userId),
+              sort: '-apply_time,-create_time',
+              limit: String(limit),
+              offset: String(offset),
+              status: 'complete,+pass,+hire,+reject',
+              includes: 'summary',
+            });
+            const res = await fetch(`/api/v1/applications?${qs}`, { credentials: 'include' });
+            if (!res.ok) return { error: 'applications_failed', status: res.status };
+            const json = await res.json();
+            const items: any[] = json.applications ?? [];
+            all.push(...items);
+            if (all.length >= (json.total ?? items.length) || items.length < limit) break;
+            offset += limit;
           }
+
+          return { applications: all };
+        });
+
+        if (result.error) {
+          console.error('[applied] API 오류:', result);
+          return [];
         }
 
-        return applications.map((item: any) => ({
+        return (result.applications ?? []).map((item: any) => ({
           wanted_job_id: item.job_id || item.job?.id || 0,
           company_name: item.company_name || item.job?.company_name || '',
           position: item.job?.position || '',
