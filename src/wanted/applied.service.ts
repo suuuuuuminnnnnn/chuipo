@@ -16,33 +16,27 @@ export class AppliedService {
   async fetchApplications(): Promise<ApplicationStatus[]> {
     return this.session.withSession(async (context) => {
       const page = await context.newPage();
+      let capturedData: any = null;
+
+      page.on('response', async (response) => {
+        const url = response.url();
+        if (url.includes('/applications') && response.status() === 200) {
+          try {
+            const json = await response.json();
+            if (json?.data?.length > 0) capturedData = json;
+          } catch {}
+        }
+      });
+
       try {
         await page.goto('https://www.wanted.co.kr/status/applications', {
           waitUntil: 'networkidle',
           timeout: 30_000,
         });
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
 
-        const apiResponse: any = await page.evaluate(async () => {
-          const endpoints = [
-            '/api/v4/applications?limit=100',
-            '/api/v4/applications?status=active&limit=100',
-            '/api/v4/job-applications?limit=100',
-          ];
-          for (const url of endpoints) {
-            try {
-              const res = await fetch(url, { credentials: 'include' });
-              if (res.ok) {
-                const json = await res.json();
-                if (json?.data?.length > 0) return json;
-              }
-            } catch {}
-          }
-          return null;
-        });
-
-        if (apiResponse?.data?.length > 0) {
-          return apiResponse.data.map((item: any) => ({
+        if (capturedData?.data?.length > 0) {
+          return capturedData.data.map((item: any) => ({
             wanted_job_id: item.job?.id || item.job_id || item.id || 0,
             company_name: item.job?.company?.name || item.company?.name || item.company_name || '',
             position: item.job?.position || item.position || '',
@@ -50,6 +44,8 @@ export class AppliedService {
             applied_at: item.created_at,
           }));
         }
+
+        console.warn('[applied] 네트워크 응답 캡처 실패 - DOM fallback 시도');
 
         const items = await page.$$eval(
           '[class*="Application"], [class*="application"], [class*="StatusItem"]',
@@ -72,7 +68,7 @@ export class AppliedService {
         );
 
         if (items.length === 0) {
-          console.warn('[applied] DOM scraping returned empty - page structure may have changed');
+          console.warn('[applied] DOM scraping도 빈 결과');
         }
 
         return items.map((item) => {
