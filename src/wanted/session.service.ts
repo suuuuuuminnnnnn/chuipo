@@ -3,8 +3,8 @@ import { chromium, BrowserContext } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 
-const SESSION_DIR = path.resolve('.wanted-session');
-const STATE_FILE = path.join(SESSION_DIR, 'state.json');
+export const SESSION_DIR = path.resolve('.wanted-session');
+export const STATE_FILE = path.join(SESSION_DIR, 'state.json');
 
 @Injectable()
 export class SessionService {
@@ -26,6 +26,24 @@ export class SessionService {
       return false;
     } finally {
       await page.close();
+    }
+  }
+
+  async login(email: string, password: string): Promise<void> {
+    if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await page.goto('https://id.wanted.co.kr/login');
+      await page.waitForLoadState('networkidle');
+      await page.fill('input[type="email"], input[name="email"]', email);
+      await page.fill('input[type="password"], input[name="password"]', password);
+      await page.click('button[type="submit"]');
+      await page.waitForURL('**/wanted.co.kr/**', { timeout: 30_000 });
+      await context.storageState({ path: STATE_FILE });
+    } finally {
+      await browser.close();
     }
   }
 

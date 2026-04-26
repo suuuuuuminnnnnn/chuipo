@@ -59,6 +59,12 @@ const commands: (SlashCommandBuilder | SlashCommandOptionsOnlyBuilder)[] = [
   new SlashCommandBuilder().setName('scan-jobs').setDescription('새 공고를 수집하고 점수화합니다'),
   new SlashCommandBuilder().setName('pause').setDescription('알림을 일시정지합니다'),
   new SlashCommandBuilder().setName('resume').setDescription('알림을 재개합니다'),
+
+  new SlashCommandBuilder()
+    .setName('login')
+    .setDescription('Wanted 로그인 (세션 저장)')
+    .addStringOption((o) => o.setName('email').setDescription('Wanted 이메일').setRequired(true))
+    .addStringOption((o) => o.setName('password').setDescription('Wanted 비밀번호').setRequired(true)),
 ];
 
 const rest = new REST({ version: '10' }).setToken(token);

@@ -13,6 +13,7 @@ import { ScanAppliedCommand } from './scan-applied.command';
 import { ScanJobsCommand } from './scan-jobs.command';
 import { PauseCommand } from './pause.command';
 import { ResumeCommand } from './resume.command';
+import { LoginCommand } from './login.command';
 
 @Module({
   imports: [DbModule, WantedModule, ScorerModule],
@@ -20,7 +21,7 @@ import { ResumeCommand } from './resume.command';
     CommandsService,
     SetupCommand, SetRoleCommand, SetKeywordsCommand, SetLocationCommand,
     SetExpCommand, MySettingsCommand, ScanAppliedCommand, ScanJobsCommand,
-    PauseCommand, ResumeCommand,
+    PauseCommand, ResumeCommand, LoginCommand,
   ],
   exports: [CommandsService],
 })

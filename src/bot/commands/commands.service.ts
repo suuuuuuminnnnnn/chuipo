@@ -11,6 +11,7 @@ import { ScanAppliedCommand } from './scan-applied.command';
 import { ScanJobsCommand } from './scan-jobs.command';
 import { PauseCommand } from './pause.command';
 import { ResumeCommand } from './resume.command';
+import { LoginCommand } from './login.command';
 
 @Injectable()
 export class CommandsService implements OnModuleInit {
@@ -27,13 +28,14 @@ export class CommandsService implements OnModuleInit {
     private readonly scanJobs: ScanJobsCommand,
     private readonly pause: PauseCommand,
     private readonly resume: ResumeCommand,
+    private readonly login: LoginCommand,
   ) {}
 
   onModuleInit() {
     const commands: BotCommand[] = [
       this.setup, this.setRole, this.setKeywords, this.setLocation,
       this.setExp, this.mySettings, this.scanApplied, this.scanJobs,
-      this.pause, this.resume,
+      this.pause, this.resume, this.login,
     ];
     for (const cmd of commands) {
       this.commandMap.set(cmd.data.name, cmd);
