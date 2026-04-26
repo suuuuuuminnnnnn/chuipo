@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChatInputCommandInteraction, ChannelType, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { DbService } from '../../db/db.service';
 import { BotCommand } from './base.command';
 
@@ -30,10 +30,6 @@ export class SetupCommand implements BotCommand {
     )
     .addIntegerOption((o) =>
       o.setName('exp').setDescription('경력 연수 (0=신입)').setMinValue(0).setMaxValue(20).setRequired(false),
-    )
-    .addChannelOption((o) =>
-      o.setName('alert_channel').setDescription('알림 채널 (기본: 현재 채널)')
-        .addChannelTypes(ChannelType.GuildText).setRequired(false),
     );
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -42,10 +38,9 @@ export class SetupCommand implements BotCommand {
     const exclude_keywords = interaction.options.getString('exclude_keywords') || '';
     const location = interaction.options.getString('location') || '서울';
     const exp = interaction.options.getInteger('exp') ?? 0;
-    const alert_channel = interaction.options.getChannel('alert_channel')?.id || interaction.channelId;
 
     this.db.upsertUser(interaction.user.id, {
-      role, include_keywords, exclude_keywords, location, exp, alert_channel,
+      role, include_keywords, exclude_keywords, location, exp,
     });
 
     const embed = new EmbedBuilder()
@@ -57,7 +52,6 @@ export class SetupCommand implements BotCommand {
         { name: '위치', value: location, inline: true },
         { name: '포함 키워드', value: include_keywords || '없음' },
         { name: '제외 키워드', value: exclude_keywords || '없음' },
-        { name: '알림 채널', value: `<#${alert_channel}>` },
       );
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
