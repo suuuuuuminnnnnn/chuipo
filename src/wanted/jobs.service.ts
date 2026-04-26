@@ -48,18 +48,10 @@ export class JobsService {
       offset: String(params.offset || 0),
     });
 
-    const url = `${BASE_URL}/jobs?${qs}`;
-    console.log('[jobs] 요청 URL:', url);
-    const res = await fetch(url, { headers: HEADERS });
-    console.log('[jobs] 응답 상태:', res.status);
-    if (!res.ok) {
-      const body = await res.text();
-      console.error('[jobs] 응답 바디:', body.slice(0, 300));
-      throw new Error(`Wanted API 오류: ${res.status}`);
-    }
+    const res = await fetch(`${BASE_URL}/jobs?${qs}`, { headers: HEADERS });
+    if (!res.ok) throw new Error(`Wanted API 오류: ${res.status}`);
 
     const json: any = await res.json();
-    console.log('[jobs] 응답 바디:', JSON.stringify(json).slice(0, 300));
     return (json.data || []).map((job: any) => ({
       wanted_job_id: job.id,
       position: job.position,
