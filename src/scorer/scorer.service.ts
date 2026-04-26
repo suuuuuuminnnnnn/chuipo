@@ -75,12 +75,24 @@ export class ScorerService {
   }
 
   scoreForUser(
-    job: JobInput,
-    userKeywords?: { techStack?: string; include: string; exclude: string },
+    job: JobInput & { annual_from?: number; annual_to?: number },
+    userKeywords?: { techStack?: string; include: string; exclude: string; expMin?: number; expMax?: number },
   ): ScoreResult {
     const result = this.score(job);
 
     if (!userKeywords) return result;
+
+    // 경력 범위 필터: 공고의 annual_from/to가 사용자 설정 범위를 벗어나면 reject
+    if (userKeywords.expMin !== undefined || userKeywords.expMax !== undefined) {
+      const expMin = userKeywords.expMin ?? 0;
+      const expMax = userKeywords.expMax ?? 99;
+      const jobFrom = job.annual_from ?? 0;
+      const jobTo = job.annual_to ?? 99;
+      // 공고 범위와 사용자 범위가 겹치지 않으면 reject
+      if (jobFrom > expMax || jobTo < expMin) {
+        return { ...result, totalScore: -999, classification: 'reject' };
+      }
+    }
 
     const bodyText = [job.position, job.detail_main_tasks, job.detail_requirements, job.detail_preferred, ...(job.skill_tags || [])]
       .filter(Boolean)

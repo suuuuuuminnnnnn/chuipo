@@ -40,7 +40,7 @@ export class ScanJobsCommand implements BotCommand {
   }
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const user = this.db.getUser(interaction.user.id);
+    const user = await this.db.getUser(interaction.user.id);
     if (!user) {
       await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
@@ -48,7 +48,6 @@ export class ScanJobsCommand implements BotCommand {
     await interaction.deferReply();
 
     try {
-      // 명령어는 seenIds 무시하고 현재 공고 조회 (cron만 seenIds 사용), 최대 100개
       const newJobs = await this.jobs.fetchNewJobs(new Set<number>(), { limit: 100 });
 
       if (newJobs.length === 0) {
@@ -58,20 +57,25 @@ export class ScanJobsCommand implements BotCommand {
 
       const scored: { job: WantedJobDetail; result: ScoreResult }[] = [];
       for (const job of newJobs) {
-        const jobInput = {
-          position: job.position,
-          detail_intro: job.detail_intro,
-          detail_main_tasks: job.detail_main_tasks,
-          detail_requirements: job.detail_requirements,
-          detail_preferred: job.detail_preferred,
-          skill_tags: job.skill_tags,
-        };
-
-        const userResult = this.scorer.scoreForUser(jobInput, {
-          techStack: user.tech_stack,
-          include: user.include_keywords,
-          exclude: user.exclude_keywords,
-        });
+        const userResult = this.scorer.scoreForUser(
+          {
+            position: job.position,
+            detail_intro: job.detail_intro,
+            detail_main_tasks: job.detail_main_tasks,
+            detail_requirements: job.detail_requirements,
+            detail_preferred: job.detail_preferred,
+            skill_tags: job.skill_tags,
+            annual_from: job.annual_from,
+            annual_to: job.annual_to,
+          },
+          {
+            techStack: user.tech_stack,
+            include: user.include_keywords,
+            exclude: user.exclude_keywords,
+            expMin: user.exp_min,
+            expMax: user.exp_max,
+          },
+        );
         if (userResult.classification !== 'reject') scored.push({ job, result: userResult });
       }
 
@@ -85,7 +89,9 @@ export class ScanJobsCommand implements BotCommand {
         `총 ${newJobs.length}개의 새 공고를 분석했습니다.`,
         `추천: ${backendCount}개 | 검토: ${reviewCount}개 | 제외: ${rejectCount}개`,
         scored.length > 10 ? '(상위 10개만 표시)' : '',
-      ].filter(Boolean).join('\n');
+      ]
+        .filter(Boolean)
+        .join('\n');
 
       await interaction.editReply({
         content: summary,

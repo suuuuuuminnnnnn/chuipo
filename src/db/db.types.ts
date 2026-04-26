@@ -6,6 +6,8 @@ export interface UserSettings {
   exclude_keywords: string;
   location: string;
   exp: number;
+  exp_min: number;
+  exp_max: number;
   paused: number;
   alert_channel: string;
 }

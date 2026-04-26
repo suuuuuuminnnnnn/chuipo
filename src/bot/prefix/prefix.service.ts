@@ -9,7 +9,6 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../config/status-colors';
 
 const PREFIX = '!';
 
-
 @Injectable()
 export class PrefixService {
   constructor(
@@ -40,10 +39,10 @@ export class PrefixService {
   }
 
   private async setup(message: Message, args: string[]) {
-    // !설정 [role] [tech_stack] [location] [exp]
-    const [role, techStack, location, expStr] = args;
+    // !설정 [role] [tech_stack] [location] [exp] [exp_min] [exp_max]
+    const [role, techStack, location, expStr, expMinStr, expMaxStr] = args;
     if (!role) {
-      await message.reply('사용법: `!설정 [직군] [기술스택,쉼표구분] [위치] [경력]`\n예: `!설정 backend kotlin,spring 서울 3`');
+      await message.reply('사용법: `!설정 [직군] [기술스택,쉼표구분] [위치] [경력] [공고최소경력] [공고최대경력]`\n예: `!설정 backend kotlin,spring 서울 3 0 5`');
       return;
     }
     const validRoles = ['backend', 'frontend', 'fullstack', 'devops', 'data'];
@@ -52,34 +51,40 @@ export class PrefixService {
       return;
     }
     const exp = expStr ? parseInt(expStr, 10) : 0;
-    this.db.upsertUser(message.author.id, {
+    const exp_min = expMinStr ? parseInt(expMinStr, 10) : 0;
+    const exp_max = expMaxStr ? parseInt(expMaxStr, 10) : 20;
+    await this.db.upsertUser(message.author.id, {
       role,
       tech_stack: techStack || '',
       location: location || '서울',
       exp: isNaN(exp) ? 0 : exp,
+      exp_min: isNaN(exp_min) ? 0 : exp_min,
+      exp_max: isNaN(exp_max) ? 20 : exp_max,
     });
     const embed = new EmbedBuilder()
       .setTitle('설정 완료')
       .setColor(0x2ecc71)
       .addFields(
         { name: '역할', value: role, inline: true },
-        { name: '경력', value: `${isNaN(exp) ? 0 : exp}년`, inline: true },
+        { name: '내 경력', value: `${isNaN(exp) ? 0 : exp}년`, inline: true },
         { name: '위치', value: location || '서울', inline: true },
+        { name: '공고 경력 범위', value: `${isNaN(exp_min) ? 0 : exp_min}~${isNaN(exp_max) ? 20 : exp_max}년`, inline: true },
         { name: '기술 스택', value: techStack || '없음' },
       );
     await message.reply({ embeds: [embed] });
   }
 
   private async mySettings(message: Message) {
-    const user = this.db.getUser(message.author.id);
+    const user = await this.db.getUser(message.author.id);
     if (!user) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
     const embed = new EmbedBuilder()
       .setTitle('내 설정')
       .setColor(0x3498db)
       .addFields(
         { name: '역할', value: user.role, inline: true },
-        { name: '경력', value: `${user.exp}년`, inline: true },
+        { name: '내 경력', value: `${user.exp}년`, inline: true },
         { name: '위치', value: user.location, inline: true },
+        { name: '공고 경력 범위', value: `${user.exp_min ?? 0}~${user.exp_max ?? 20}년`, inline: true },
         { name: '기술 스택', value: user.tech_stack || '없음' },
         { name: '포함 키워드', value: user.include_keywords || '없음' },
         { name: '제외 키워드', value: user.exclude_keywords || '없음' },
@@ -89,13 +94,13 @@ export class PrefixService {
   }
 
   private async scanApplied(message: Message) {
-    if (!this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
+    if (!await this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
     const loading = await message.reply('지원 현황 조회 중...');
     try {
       const applications = await this.applied.fetchApplications();
       const changed: { app: typeof applications[0]; oldStatus: string }[] = [];
       for (const app of applications) {
-        const result = this.db.upsertAppliedJob(message.author.id, app);
+        const result = await this.db.upsertAppliedJob(message.author.id, app);
         if (result.changed && result.oldStatus) changed.push({ app, oldStatus: result.oldStatus });
       }
       if (changed.length === 0) {
@@ -115,17 +120,19 @@ export class PrefixService {
       );
       await loading.edit({ content: `${changed.length}건 변경됨`, embeds });
       for (let i = 10; i < changed.length; i += 10) {
-        await (message.channel as TextChannel).send({ embeds: changed.slice(i, i + 10).map(({ app, oldStatus }) =>
-          new EmbedBuilder()
-            .setTitle(app.position)
-            .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
-            .addFields(
-              { name: '회사', value: app.company_name, inline: true },
-              { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
-            )
-            .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
-            .setTimestamp(),
-        ) });
+        await (message.channel as TextChannel).send({
+          embeds: changed.slice(i, i + 10).map(({ app, oldStatus }) =>
+            new EmbedBuilder()
+              .setTitle(app.position)
+              .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
+              .addFields(
+                { name: '회사', value: app.company_name, inline: true },
+                { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
+              )
+              .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
+              .setTimestamp(),
+          ),
+        });
       }
     } catch (err: any) {
       const msg = (err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND')
@@ -136,27 +143,35 @@ export class PrefixService {
   }
 
   private async scanJobs(message: Message) {
-    const user = this.db.getUser(message.author.id);
+    const user = await this.db.getUser(message.author.id);
     if (!user) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
     const loading = await message.reply('공고 수집 중...');
     try {
       const newJobs = await this.jobs.fetchNewJobs(new Set<number>(), { limit: 100 });
-      const scored: { job: typeof newJobs[0]; totalScore: number; cls: string }[] = [];
+      const scored: { job: typeof newJobs[0]; totalScore: number; cls: string; matchedKeywords: { keyword: string; score: number }[] }[] = [];
       for (const job of newJobs) {
-        const jobInput = {
-          position: job.position,
-          detail_intro: job.detail_intro,
-          detail_main_tasks: job.detail_main_tasks,
-          detail_requirements: job.detail_requirements,
-          detail_preferred: job.detail_preferred,
-          skill_tags: job.skill_tags,
-        };
-        const result = this.scorer.scoreForUser(jobInput, {
-          techStack: user.tech_stack,
-          include: user.include_keywords,
-          exclude: user.exclude_keywords,
-        });
-        if (result.classification !== 'reject') scored.push({ job, totalScore: result.totalScore, cls: result.classification });
+        const result = this.scorer.scoreForUser(
+          {
+            position: job.position,
+            detail_intro: job.detail_intro,
+            detail_main_tasks: job.detail_main_tasks,
+            detail_requirements: job.detail_requirements,
+            detail_preferred: job.detail_preferred,
+            skill_tags: job.skill_tags,
+            annual_from: job.annual_from,
+            annual_to: job.annual_to,
+          },
+          {
+            techStack: user.tech_stack,
+            include: user.include_keywords,
+            exclude: user.exclude_keywords,
+            expMin: user.exp_min,
+            expMax: user.exp_max,
+          },
+        );
+        if (result.classification !== 'reject') {
+          scored.push({ job, totalScore: result.totalScore, cls: result.classification, matchedKeywords: result.matchedKeywords });
+        }
       }
       scored.sort((a, b) => b.totalScore - a.totalScore);
       if (scored.length === 0) {
@@ -165,17 +180,24 @@ export class PrefixService {
       }
       const backendCount = scored.filter((s) => s.cls === 'backend').length;
       const reviewCount = scored.filter((s) => s.cls === 'review').length;
-      const embeds = scored.slice(0, 10).map(({ job, totalScore, cls }) =>
-        new EmbedBuilder()
+      const embeds = scored.slice(0, 10).map(({ job, totalScore, cls, matchedKeywords }) => {
+        const expText =
+          job.annual_from != null || job.annual_to != null
+            ? `${job.annual_from ?? 0}~${job.annual_to ?? ''}년`
+            : '미공개';
+        return new EmbedBuilder()
           .setTitle(`[${cls === 'backend' ? '추천' : '검토'}] ${job.position}`)
           .setColor(cls === 'backend' ? 0x2ecc71 : 0xf39c12)
           .addFields(
             { name: '회사', value: job.company_name || '미공개', inline: true },
+            { name: '위치', value: job.location || '미공개', inline: true },
+            { name: '경력', value: expText, inline: true },
             { name: '점수', value: `${totalScore}점`, inline: true },
+            { name: '매칭 키워드', value: matchedKeywords.map((k) => k.keyword).join(', ') || '없음' },
           )
           .setURL(`https://www.wanted.co.kr/wd/${job.wanted_job_id}`)
-          .setTimestamp(),
-      );
+          .setTimestamp();
+      });
       await loading.edit({ content: `${newJobs.length}개 분석 | 추천 ${backendCount}개 | 검토 ${reviewCount}개`, embeds });
     } catch (err) {
       console.error('[prefix:공고조회]', err);
@@ -191,8 +213,8 @@ export class PrefixService {
         {
           name: '⚙️ 설정',
           value: [
-            '`!설정 [직군] [기술스택] [위치] [경력]` — 초기 설정',
-            '> 예: `!설정 backend kotlin,spring 서울 3`',
+            '`!설정 [직군] [기술스택] [위치] [경력] [공고최소경력] [공고최대경력]` — 초기 설정',
+            '> 예: `!설정 backend kotlin,spring 서울 3 0 5`',
             '> 직군: backend / frontend / fullstack / devops / data',
             '`!내설정` — 현재 설정 확인',
           ].join('\n'),
@@ -221,14 +243,14 @@ export class PrefixService {
   }
 
   private async pause(message: Message) {
-    if (!this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
-    this.db.upsertUser(message.author.id, { paused: 1 });
+    if (!await this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
+    await this.db.upsertUser(message.author.id, { paused: 1 });
     await message.reply('알림을 일시정지했습니다.');
   }
 
   private async resume(message: Message) {
-    if (!this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
-    this.db.upsertUser(message.author.id, { paused: 0 });
+    if (!await this.db.getUser(message.author.id)) { await message.reply('먼저 `!설정`을 실행해주세요.'); return; }
+    await this.db.upsertUser(message.author.id, { paused: 0 });
     await message.reply('알림을 재개했습니다.');
   }
 

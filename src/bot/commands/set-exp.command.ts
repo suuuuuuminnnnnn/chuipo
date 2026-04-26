@@ -15,12 +15,12 @@ export class SetExpCommand implements BotCommand {
     );
 
   async execute(interaction: ChatInputCommandInteraction) {
-    if (!this.db.getUser(interaction.user.id)) {
+    if (!await this.db.getUser(interaction.user.id)) {
       await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
     const exp = interaction.options.getInteger('years', true);
-    this.db.upsertUser(interaction.user.id, { exp });
+    await this.db.upsertUser(interaction.user.id, { exp });
     await interaction.reply({ content: `경력이 **${exp}년**으로 변경되었습니다.`, flags: 64 });
   }
 }

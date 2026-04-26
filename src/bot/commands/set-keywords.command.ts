@@ -14,7 +14,7 @@ export class SetKeywordsCommand implements BotCommand {
     .addStringOption((o) => o.setName('exclude').setDescription('제외할 키워드 (쉼표 구분)').setRequired(false));
 
   async execute(interaction: ChatInputCommandInteraction) {
-    if (!this.db.getUser(interaction.user.id)) {
+    if (!await this.db.getUser(interaction.user.id)) {
       await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
@@ -27,7 +27,7 @@ export class SetKeywordsCommand implements BotCommand {
     const updates: { include_keywords?: string; exclude_keywords?: string } = {};
     if (include !== null) updates.include_keywords = include;
     if (exclude !== null) updates.exclude_keywords = exclude;
-    this.db.upsertUser(interaction.user.id, updates);
+    await this.db.upsertUser(interaction.user.id, updates);
     const parts: string[] = [];
     if (include !== null) parts.push(`포함: **${include || '없음'}**`);
     if (exclude !== null) parts.push(`제외: **${exclude || '없음'}**`);

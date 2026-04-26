@@ -16,27 +16,33 @@ export class ScanAppliedCommand implements BotCommand {
     .setName('scan-applied')
     .setDescription('지원 현황을 즉시 조회합니다');
 
-  async execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply({ flags: 64 });
+  private buildEmbed(app: any, oldStatus: string): EmbedBuilder {
+    return new EmbedBuilder()
+      .setTitle(app.position)
+      .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
+      .addFields(
+        { name: '회사', value: app.company_name, inline: true },
+        { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
+      )
+      .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
+      .setTimestamp();
+  }
 
-    if (!this.db.getUser(interaction.user.id)) {
-      await interaction.editReply({ content: '먼저 `/setup`을 실행해주세요.' });
+  async execute(interaction: ChatInputCommandInteraction) {
+    const user = await this.db.getUser(interaction.user.id);
+    if (!user) {
+      await interaction.reply({ content: '먼저 `/setup`을 실행해주세요.', flags: 64 });
       return;
     }
+    await interaction.deferReply({ flags: 64 });
 
     try {
       const applications = await this.applied.fetchApplications();
-      if (applications.length === 0) {
-        await interaction.editReply({ content: '지원 내역이 없습니다.' });
-        return;
-      }
-
       const changed: { app: typeof applications[0]; oldStatus: string }[] = [];
+
       for (const app of applications) {
-        const result = this.db.upsertAppliedJob(interaction.user.id, app);
-        if (result.changed && result.oldStatus) {
-          changed.push({ app, oldStatus: result.oldStatus });
-        }
+        const result = await this.db.upsertAppliedJob(user.discord_id, app);
+        if (result.changed && result.oldStatus) changed.push({ app, oldStatus: result.oldStatus });
       }
 
       if (changed.length === 0) {
@@ -44,36 +50,23 @@ export class ScanAppliedCommand implements BotCommand {
         return;
       }
 
-      const buildEmbed = ({ app, oldStatus }: { app: typeof applications[0]; oldStatus: string }) =>
-        new EmbedBuilder()
-          .setTitle(app.position)
-          .setColor(STATUS_COLORS[app.status] || 0x95a5a6)
-          .addFields(
-            { name: '회사', value: app.company_name, inline: true },
-            { name: '상태', value: `${STATUS_LABELS[oldStatus] ?? oldStatus} → **${STATUS_LABELS[app.status] ?? app.status}**`, inline: true },
-          )
-          .setURL(`https://www.wanted.co.kr/wd/${app.wanted_job_id}`)
-          .setTimestamp();
-
       const batches: typeof changed[] = [];
-      for (let i = 0; i < changed.length; i += 10) {
-        batches.push(changed.slice(i, i + 10));
-      }
+      for (let i = 0; i < changed.length; i += 10) batches.push(changed.slice(i, i + 10));
 
       await interaction.editReply({
         content: `${changed.length}건 변경됨`,
-        embeds: batches[0].map(buildEmbed),
+        embeds: batches[0].map(({ app, oldStatus }) => this.buildEmbed(app, oldStatus)),
       });
+
       for (const batch of batches.slice(1)) {
-        await interaction.followUp({ embeds: batch.map(buildEmbed), flags: 64 });
+        await interaction.followUp({ embeds: batch.map(({ app, oldStatus }) => this.buildEmbed(app, oldStatus)), flags: 64 });
       }
     } catch (err: any) {
-      if (err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND') {
-        await interaction.editReply({ content: '세션이 만료되었습니다. `npm run wanted:login`을 실행해주세요.' });
-        return;
-      }
-      console.error('[scan-applied]', err);
-      await interaction.editReply({ content: '지원 현황 조회 중 오류가 발생했습니다.' });
+      const msg =
+        err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND'
+          ? '세션이 만료되었습니다. `/login`을 실행해주세요.'
+          : '지원 현황 조회 중 오류가 발생했습니다.';
+      await interaction.editReply({ content: msg });
     }
   }
 }

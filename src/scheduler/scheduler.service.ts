@@ -41,7 +41,7 @@ export class SchedulerService {
       console.warn('[cron:applied] OWNER_DISCORD_ID 환경변수가 없습니다.');
       return;
     }
-    const owner = this.db.getUser(ownerId);
+    const owner = await this.db.getUser(ownerId);
     if (!owner) return;
 
     let applications;
@@ -59,7 +59,7 @@ export class SchedulerService {
     }
 
     for (const app of applications) {
-      const result = this.db.upsertAppliedJob(owner.discord_id, app);
+      const result = await this.db.upsertAppliedJob(owner.discord_id, app);
       if (result.changed && result.oldStatus) {
         const oldLabel = STATUS_LABELS[result.oldStatus] ?? result.oldStatus;
         const newLabel = STATUS_LABELS[app.status] ?? app.status;
@@ -84,11 +84,10 @@ export class SchedulerService {
 
   @Cron(process.env.CRON_JOBS_SCHEDULE || '0 */2 * * *')
   async collectAndNotifyJobs() {
-    const users = this.db.getAllActiveUsers();
+    const users = await this.db.getAllActiveUsers();
     if (users.length === 0) return;
 
-    // 유저별 설정(role/location/exp)으로 각각 fetch, job ID로 중복 제거
-    const seenIds = this.db.getSeenJobIds();
+    const seenIds = await this.db.getSeenJobIds();
     const allNewJobs = new Map<number, WantedJobDetail>();
 
     for (const user of users) {
@@ -120,7 +119,7 @@ export class SchedulerService {
         detail_preferred: job.detail_preferred,
         skill_tags: job.skill_tags,
       });
-      this.db.insertJob({
+      await this.db.insertJob({
         wanted_job_id: job.wanted_job_id,
         position: job.position,
         company_name: job.company_name,
@@ -149,8 +148,16 @@ export class SchedulerService {
             detail_requirements: job.detail_requirements,
             detail_preferred: job.detail_preferred,
             skill_tags: job.skill_tags,
+            annual_from: job.annual_from,
+            annual_to: job.annual_to,
           },
-          { techStack: user.tech_stack, include: user.include_keywords, exclude: user.exclude_keywords },
+          {
+            techStack: user.tech_stack,
+            include: user.include_keywords,
+            exclude: user.exclude_keywords,
+            expMin: user.exp_min,
+            expMax: user.exp_max,
+          },
         );
         if (result.classification !== 'reject') {
           userJobs.push({ job, score: result.totalScore, cls: result.classification });
@@ -163,18 +170,23 @@ export class SchedulerService {
       const backendCount = userJobs.filter((j) => j.cls === 'backend').length;
       const reviewCount = userJobs.filter((j) => j.cls === 'review').length;
 
-      const embeds = userJobs.slice(0, 10).map(({ job, score, cls }) =>
-        new EmbedBuilder()
+      const embeds = userJobs.slice(0, 10).map(({ job, score, cls }) => {
+        const expText =
+          job.annual_from != null || job.annual_to != null
+            ? `${job.annual_from ?? 0}~${job.annual_to ?? ''}년`
+            : '미공개';
+        return new EmbedBuilder()
           .setTitle(`[${cls.toUpperCase()}] ${job.position}`)
           .setColor(cls === 'backend' ? 0x2ecc71 : 0xf39c12)
           .addFields(
             { name: '회사', value: job.company_name || '미공개', inline: true },
             { name: '위치', value: job.location || '미공개', inline: true },
+            { name: '경력', value: expText, inline: true },
             { name: '점수', value: `${score}점`, inline: true },
           )
           .setURL(`https://www.wanted.co.kr/wd/${job.wanted_job_id}`)
-          .setTimestamp(),
-      );
+          .setTimestamp();
+      });
 
       await this.sendToChannel({
         content: `<@${user.discord_id}> 새 공고 ${userJobs.length}건 (추천: ${backendCount} | 검토: ${reviewCount})`,
