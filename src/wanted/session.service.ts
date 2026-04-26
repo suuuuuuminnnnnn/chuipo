@@ -15,13 +15,11 @@ export class SessionService {
   async isSessionValid(context: BrowserContext): Promise<boolean> {
     const page = await context.newPage();
     try {
-      const response = await page.goto('https://www.wanted.co.kr/api/v4/me', {
+      await page.goto('https://www.wanted.co.kr/profile', {
         waitUntil: 'domcontentloaded',
         timeout: 15_000,
       });
-      if (!response) return false;
-      if (page.url().includes('id.wanted.co.kr')) return false;
-      return response.status() === 200;
+      return !page.url().includes('id.wanted.co.kr');
     } catch {
       return false;
     } finally {
@@ -37,9 +35,23 @@ export class SessionService {
     try {
       await page.goto('https://id.wanted.co.kr/login');
       await page.waitForLoadState('networkidle');
-      await page.fill('input[type="email"], input[name="email"], input[autocomplete="email"], input[autocomplete="username"]', email);
-      await page.fill('input[type="password"], input[name="password"], input[autocomplete="current-password"]', password);
-      await page.click('button[type="submit"], button:has-text("로그인"), button:has-text("Login")');
+
+      const kakaoBtn = page.locator('button:has-text("카카오"), a:has-text("카카오"), [class*="kakao"]').first();
+      const hasKakao = await kakaoBtn.isVisible().catch(() => false);
+
+      if (hasKakao) {
+        await kakaoBtn.click();
+        await page.waitForURL('**/kakao.com/**', { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        await page.fill('input[name="loginId"], input[type="email"]', email);
+        await page.fill('input[name="password"], input[type="password"]', password);
+        await page.click('button[type="submit"]');
+      } else {
+        await page.fill('input[type="email"], input[name="email"], input[autocomplete="email"]', email);
+        await page.fill('input[type="password"], input[name="password"], input[autocomplete="current-password"]', password);
+        await page.click('button[type="submit"], button:has-text("로그인")');
+      }
+
       await page.waitForURL('**/wanted.co.kr/**', { timeout: 60_000 });
       await context.storageState({ path: STATE_FILE });
     } finally {
