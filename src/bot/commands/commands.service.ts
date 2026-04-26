@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, ModalSubmitInteraction } from 'discord.js';
 import { BotCommand } from './base.command';
-import { SetupCommand } from './setup.command';
+import { SetupCommand, SETUP_MODAL_ID } from './setup.command';
 import { SetRoleCommand } from './set-role.command';
 import { SetKeywordsCommand } from './set-keywords.command';
 import { SetLocationCommand } from './set-location.command';
@@ -45,6 +45,12 @@ export class CommandsService implements OnModuleInit {
   async handle(interaction: ChatInputCommandInteraction): Promise<void> {
     const cmd = this.commandMap.get(interaction.commandName);
     if (cmd) await cmd.execute(interaction);
+  }
+
+  async handleModal(interaction: ModalSubmitInteraction): Promise<void> {
+    if (interaction.customId === SETUP_MODAL_ID) {
+      await this.setup.handleModalSubmit(interaction);
+    }
   }
 
   getAll(): BotCommand[] {

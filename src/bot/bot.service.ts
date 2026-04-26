@@ -2,7 +2,6 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { CommandsService } from './commands/commands.service';
 import { PrefixService } from './prefix/prefix.service';
-import { SetupCommand, SETUP_MODAL_ID } from './commands/setup.command';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
@@ -17,7 +16,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly commands: CommandsService,
     private readonly prefix: PrefixService,
-    private readonly setup: SetupCommand,
   ) {}
 
   async onModuleInit() {
@@ -33,15 +31,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         if (interaction.isChatInputCommand()) {
           await this.commands.handle(interaction);
         } else if (interaction.isModalSubmit()) {
-          if (interaction.customId === SETUP_MODAL_ID) {
-            await this.setup.handleModalSubmit(interaction);
-          }
+          await this.commands.handleModal(interaction);
         }
       } catch (err: any) {
         if (err?.code === 10062) return;
         console.error(`[bot] 인터랙션 오류:`, err);
         const reply = { content: '오류가 발생했습니다.', flags: 64 };
-        if ('replied' in interaction && (interaction.replied || interaction.deferred)) {
+        if ('replied' in interaction && (interaction.replied || (interaction as any).deferred)) {
           await (interaction as any).editReply({ content: reply.content }).catch(() => {});
         } else if ('reply' in interaction) {
           await (interaction as any).reply(reply).catch(() => {});
