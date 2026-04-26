@@ -12,23 +12,7 @@ if (!token || !clientId) {
 const commands: (SlashCommandBuilder | SlashCommandOptionsOnlyBuilder)[] = [
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('초기 설정을 진행합니다')
-    .addStringOption((o) =>
-      o.setName('role').setDescription('희망 직군').setRequired(true).addChoices(
-        { name: 'Backend', value: 'backend' },
-        { name: 'Frontend', value: 'frontend' },
-        { name: 'Fullstack', value: 'fullstack' },
-        { name: 'DevOps', value: 'devops' },
-        { name: 'Data', value: 'data' },
-      ),
-    )
-    .addStringOption((o) => o.setName('tech_stack').setDescription('선호 기술 스택 - 없으면 제외 (예: node.js,nestjs,typescript)'))
-    .addStringOption((o) => o.setName('include_keywords').setDescription('포함 시 점수 보너스 키워드 (쉼표 구분)'))
-    .addStringOption((o) => o.setName('exclude_keywords').setDescription('포함 시 무조건 제외 키워드 (쉼표 구분)'))
-    .addStringOption((o) => o.setName('location').setDescription('희망 근무지'))
-    .addIntegerOption((o) => o.setName('exp').setDescription('내 경력 연수 (0=신입)').setMinValue(0).setMaxValue(20))
-    .addIntegerOption((o) => o.setName('exp_min').setDescription('공고 최소 경력 요건 (기본 0)').setMinValue(0).setMaxValue(20))
-    .addIntegerOption((o) => o.setName('exp_max').setDescription('공고 최대 경력 요건 (기본 20)').setMinValue(0).setMaxValue(20)),
+    .setDescription('설정을 조회하거나 수정합니다 (기존 값이 미리 채워집니다)'),
 
   new SlashCommandBuilder()
     .setName('set-role').setDescription('희망 직군을 변경합니다')

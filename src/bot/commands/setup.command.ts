@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import {
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+  SlashCommandBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
+  ModalSubmitInteraction,
+} from 'discord.js';
 import { DbService } from '../../db/db.service';
 import { BotCommand } from './base.command';
+
+export const SETUP_MODAL_ID = 'setup-modal';
 
 @Injectable()
 export class SetupCommand implements BotCommand {
@@ -9,50 +20,82 @@ export class SetupCommand implements BotCommand {
 
   readonly data = new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('초기 설정을 진행합니다')
-    .addStringOption((o) =>
-      o.setName('role').setDescription('희망 직군').setRequired(true).addChoices(
-        { name: 'Backend', value: 'backend' },
-        { name: 'Frontend', value: 'frontend' },
-        { name: 'Fullstack', value: 'fullstack' },
-        { name: 'DevOps', value: 'devops' },
-        { name: 'Data', value: 'data' },
-      ),
-    )
-    .addStringOption((o) =>
-      o.setName('tech_stack').setDescription('선호 기술 스택 - 없으면 제외 (예: node.js,nestjs,typescript)').setRequired(false),
-    )
-    .addStringOption((o) =>
-      o.setName('include_keywords').setDescription('포함 시 점수 보너스 키워드 (쉼표 구분)').setRequired(false),
-    )
-    .addStringOption((o) =>
-      o.setName('exclude_keywords').setDescription('포함 시 무조건 제외 키워드 (쉼표 구분)').setRequired(false),
-    )
-    .addStringOption((o) =>
-      o.setName('location').setDescription('희망 근무지 (기본: 서울)').setRequired(false),
-    )
-    .addIntegerOption((o) =>
-      o.setName('exp').setDescription('내 경력 연수 (0=신입)').setMinValue(0).setMaxValue(20).setRequired(false),
-    )
-    .addIntegerOption((o) =>
-      o.setName('exp_min').setDescription('공고 최소 경력 요건 (기본 0)').setMinValue(0).setMaxValue(20).setRequired(false),
-    )
-    .addIntegerOption((o) =>
-      o.setName('exp_max').setDescription('공고 최대 경력 요건 (기본 20)').setMinValue(0).setMaxValue(20).setRequired(false),
-    );
+    .setDescription('설정을 조회하거나 수정합니다 (기존 값이 미리 채워집니다)');
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const role = interaction.options.getString('role', true);
-    const tech_stack = interaction.options.getString('tech_stack') || '';
-    const include_keywords = interaction.options.getString('include_keywords') || '';
-    const exclude_keywords = interaction.options.getString('exclude_keywords') || '';
-    const location = interaction.options.getString('location') || '서울';
-    const exp = interaction.options.getInteger('exp') ?? 0;
-    const exp_min = interaction.options.getInteger('exp_min') ?? 0;
-    const exp_max = interaction.options.getInteger('exp_max') ?? 20;
+    const user = await this.db.getUser(interaction.user.id);
+
+    const modal = new ModalBuilder()
+      .setCustomId(SETUP_MODAL_ID)
+      .setTitle('설정');
+
+    const fields = [
+      new TextInputBuilder()
+        .setCustomId('role')
+        .setLabel('직군 (backend / frontend / fullstack / devops / data)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setValue(user?.role ?? 'backend'),
+      new TextInputBuilder()
+        .setCustomId('tech_stack')
+        .setLabel('기술 스택 (쉼표 구분, 없으면 공고 제외)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setValue(user?.tech_stack ?? ''),
+      new TextInputBuilder()
+        .setCustomId('location')
+        .setLabel('희망 근무지')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setValue(user?.location ?? '서울'),
+      new TextInputBuilder()
+        .setCustomId('exp_info')
+        .setLabel('경력: 내 경력 / 공고 최소 / 공고 최대 (예: 3 / 0 / 5)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setValue(`${user?.exp ?? 0} / ${user?.exp_min ?? 0} / ${user?.exp_max ?? 20}`),
+      new TextInputBuilder()
+        .setCustomId('keywords')
+        .setLabel('포함키워드 / 제외키워드 (쉼표 구분, | 로 구분)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setValue(`${user?.include_keywords ?? ''} | ${user?.exclude_keywords ?? ''}`),
+    ];
+
+    for (const field of fields) {
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(field));
+    }
+
+    await interaction.showModal(modal);
+  }
+
+  async handleModalSubmit(interaction: ModalSubmitInteraction) {
+    const role = interaction.fields.getTextInputValue('role').trim().toLowerCase();
+    const validRoles = ['backend', 'frontend', 'fullstack', 'devops', 'data'];
+    if (!validRoles.includes(role)) {
+      await interaction.reply({
+        content: `직군은 ${validRoles.join(', ')} 중 하나여야 합니다.`,
+        flags: 64,
+      });
+      return;
+    }
+
+    const tech_stack = interaction.fields.getTextInputValue('tech_stack').trim();
+    const location = interaction.fields.getTextInputValue('location').trim() || '서울';
+
+    const expRaw = interaction.fields.getTextInputValue('exp_info').trim();
+    const expParts = expRaw.split('/').map((s) => parseInt(s.trim(), 10));
+    const exp = isNaN(expParts[0]) ? 0 : expParts[0];
+    const exp_min = isNaN(expParts[1]) ? 0 : expParts[1];
+    const exp_max = isNaN(expParts[2]) ? 20 : expParts[2];
+
+    const keywordsRaw = interaction.fields.getTextInputValue('keywords').trim();
+    const [incRaw, excRaw] = keywordsRaw.split('|');
+    const include_keywords = (incRaw ?? '').trim();
+    const exclude_keywords = (excRaw ?? '').trim();
 
     await this.db.upsertUser(interaction.user.id, {
-      role, tech_stack, include_keywords, exclude_keywords, location, exp, exp_min, exp_max,
+      role, tech_stack, location, exp, exp_min, exp_max, include_keywords, exclude_keywords,
     });
 
     const embed = new EmbedBuilder()

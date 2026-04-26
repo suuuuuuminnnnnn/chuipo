@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { CommandsService } from './commands/commands.service';
 import { PrefixService } from './prefix/prefix.service';
+import { SetupCommand, SETUP_MODAL_ID } from './commands/setup.command';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
@@ -16,6 +17,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly commands: CommandsService,
     private readonly prefix: PrefixService,
+    private readonly setup: SetupCommand,
   ) {}
 
   async onModuleInit() {
@@ -27,17 +29,22 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isChatInputCommand()) return;
       try {
-        await this.commands.handle(interaction);
+        if (interaction.isChatInputCommand()) {
+          await this.commands.handle(interaction);
+        } else if (interaction.isModalSubmit()) {
+          if (interaction.customId === SETUP_MODAL_ID) {
+            await this.setup.handleModalSubmit(interaction);
+          }
+        }
       } catch (err: any) {
         if (err?.code === 10062) return;
-        console.error(`[bot] 커맨드 오류 (${interaction.commandName}):`, err);
+        console.error(`[bot] 인터랙션 오류:`, err);
         const reply = { content: '오류가 발생했습니다.', flags: 64 };
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ content: reply.content }).catch(() => {});
-        } else {
-          await interaction.reply(reply).catch(() => {});
+        if ('replied' in interaction && (interaction.replied || interaction.deferred)) {
+          await (interaction as any).editReply({ content: reply.content }).catch(() => {});
+        } else if ('reply' in interaction) {
+          await (interaction as any).reply(reply).catch(() => {});
         }
       }
     });
