@@ -91,6 +91,7 @@ export class ScanJobsCommand implements BotCommand {
 
         // 유저에게 표시할 점수는 유저 키워드 반영
         const userResult = this.scorer.scoreForUser(jobInput, {
+          techStack: user.tech_stack,
           include: user.include_keywords,
           exclude: user.exclude_keywords,
         });

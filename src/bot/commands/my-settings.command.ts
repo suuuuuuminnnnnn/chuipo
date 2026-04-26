@@ -24,6 +24,7 @@ export class MySettingsCommand implements BotCommand {
         { name: '역할', value: user.role, inline: true },
         { name: '경력', value: `${user.exp}년`, inline: true },
         { name: '위치', value: user.location, inline: true },
+        { name: '기술 스택', value: user.tech_stack || '없음' },
         { name: '포함 키워드', value: user.include_keywords || '없음' },
         { name: '제외 키워드', value: user.exclude_keywords || '없음' },
         { name: '알림 채널', value: `<#${user.alert_channel}>`, inline: true },

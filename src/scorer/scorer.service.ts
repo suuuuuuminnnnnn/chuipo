@@ -76,13 +76,13 @@ export class ScorerService {
 
   scoreForUser(
     job: JobInput,
-    userKeywords?: { include: string; exclude: string },
+    userKeywords?: { techStack?: string; include: string; exclude: string },
   ): ScoreResult {
     const result = this.score(job);
 
     if (!userKeywords) return result;
 
-    const bodyText = [job.position, job.detail_main_tasks, job.detail_requirements, job.detail_preferred]
+    const bodyText = [job.position, job.detail_main_tasks, job.detail_requirements, job.detail_preferred, ...(job.skill_tags || [])]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -91,6 +91,21 @@ export class ScorerService {
       for (const kw of userKeywords.exclude.split(',').map((k) => k.trim()).filter(Boolean)) {
         if (bodyText.includes(kw.toLowerCase())) {
           return { ...result, totalScore: -999, classification: 'reject' };
+        }
+      }
+    }
+
+    // 기술 스택: 하나라도 매칭되지 않으면 reject
+    if (userKeywords.techStack) {
+      const stacks = userKeywords.techStack.split(',').map((k) => k.trim()).filter(Boolean);
+      if (stacks.length > 0) {
+        const matched = stacks.filter((s) => bodyText.includes(s.toLowerCase()));
+        if (matched.length === 0) {
+          return { ...result, totalScore: -999, classification: 'reject' };
+        }
+        for (const s of matched) {
+          result.totalScore += 2;
+          result.matchedKeywords.push({ keyword: s, score: 2 });
         }
       }
     }

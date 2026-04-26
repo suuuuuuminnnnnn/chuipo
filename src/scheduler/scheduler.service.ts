@@ -152,7 +152,7 @@ export class SchedulerService {
             detail_preferred: job.detail_preferred,
             skill_tags: job.skill_tags,
           },
-          { include: user.include_keywords, exclude: user.exclude_keywords },
+          { techStack: user.tech_stack, include: user.include_keywords, exclude: user.exclude_keywords },
         );
         if (result.classification !== 'reject') {
           userJobs.push({ job, score: result.totalScore, cls: result.classification });

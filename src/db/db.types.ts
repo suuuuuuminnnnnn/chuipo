@@ -1,6 +1,7 @@
 export interface UserSettings {
   discord_id: string;
   role: string;
+  tech_stack: string;
   include_keywords: string;
   exclude_keywords: string;
   location: string;

@@ -55,6 +55,9 @@ export class DbService implements OnModuleInit {
     this.db = new Database(path.resolve('chuipo.db'));
     this.db.pragma('journal_mode = WAL');
     this.db.exec(SCHEMA);
+    try {
+      this.db.exec(`ALTER TABLE users ADD COLUMN tech_stack TEXT NOT NULL DEFAULT ''`);
+    } catch {}
   }
 
   getUser(discordId: string): UserSettings | undefined {
@@ -65,7 +68,7 @@ export class DbService implements OnModuleInit {
 
   upsertUser(discordId: string, settings: Partial<Omit<UserSettings, 'discord_id'>>): void {
     const allowed = new Set<string>([
-      'role', 'include_keywords', 'exclude_keywords',
+      'role', 'tech_stack', 'include_keywords', 'exclude_keywords',
       'location', 'exp', 'paused', 'alert_channel',
     ]);
     const safeSettings = Object.fromEntries(
