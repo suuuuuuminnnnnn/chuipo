@@ -92,7 +92,7 @@ export class AppliedService {
           return res.json();
         });
         const notifs: WantedNotification[] = (result?.notifications ?? [])
-          .filter((n: any) => n.push_type === 'application' && n.text)
+          .filter((n: any) => n.push_type === 'application' && n.text && !n.text.includes('이력서를 제출'))
           .map((n: any) => ({ text: n.text, time: n.time, push_value: String(n.push_value) }));
 
         if (!since) return notifs;
