@@ -32,9 +32,15 @@ export class SchedulerService {
     }
   }
 
-  @Cron(process.env.CRON_APPLIED_SCHEDULE || '*/30 * * * *')
+  @Cron(process.env.CRON_APPLIED_SCHEDULE || '*/10 * * * *')
   async checkApplicationUpdates() {
-    if (!this.session.sessionExists()) return;
+    const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    console.log(`[cron:applied] 시작 - ${now}`);
+
+    if (!this.session.sessionExists()) {
+      console.log('[cron:applied] 세션 없음, 건너뜀');
+      return;
+    }
 
     const ownerId = process.env.OWNER_DISCORD_ID;
     if (!ownerId) {
@@ -42,25 +48,51 @@ export class SchedulerService {
       return;
     }
     const owner = await this.db.getUser(ownerId);
-    if (!owner) return;
+    if (!owner) {
+      console.warn(`[cron:applied] DB에 사용자 없음 (${ownerId})`);
+      return;
+    }
 
     let applications;
     try {
       applications = await this.applied.fetchApplications();
+      console.log(`[cron:applied] 지원 현황 ${applications.length}건 수신`);
     } catch (err: any) {
       if (err.message === 'SESSION_EXPIRED' || err.message === 'SESSION_NOT_FOUND') {
+        console.warn('[cron:applied] 세션 만료');
         await this.sendToChannel({
           content: `<@${owner.discord_id}> Wanted 세션이 만료되었습니다. 세션을 갱신해주세요.`,
         });
       } else {
-        console.error('[cron:applied]', err);
+        console.error('[cron:applied] fetchApplications 실패:', err);
       }
       return;
     }
 
+    // 새 알림 체크 (이력서 확인 등)
+    try {
+      const newNotifs = await this.applied.fetchNotifications(owner.last_notif_time ?? undefined);
+      if (newNotifs.length > 0) {
+        console.log(`[cron:applied] 새 알림 ${newNotifs.length}건`);
+        for (const notif of newNotifs) {
+          console.log(`[cron:applied] 알림: ${notif.text} (${notif.time})`);
+          await this.sendToChannel({ content: `<@${owner.discord_id}> 📬 ${notif.text}` });
+        }
+        const latest = newNotifs.reduce((a, b) => (a.time > b.time ? a : b));
+        await this.db.upsertUser(owner.discord_id, { last_notif_time: latest.time });
+      } else {
+        console.log('[cron:applied] 새 알림 없음');
+      }
+    } catch (err) {
+      console.error('[cron:applied] 알림 조회 실패:', err);
+    }
+
+    let changedCount = 0;
     for (const app of applications) {
       const result = await this.db.upsertAppliedJob(owner.discord_id, app);
+      console.log(`[cron:applied] ${app.company_name} / ${app.position} → ${app.status}${result.changed && result.oldStatus ? ` (변경: ${result.oldStatus} → ${app.status})` : ''}`);
       if (result.changed && result.oldStatus) {
+        changedCount++;
         const oldLabel = STATUS_LABELS[result.oldStatus] ?? result.oldStatus;
         const newLabel = STATUS_LABELS[app.status] ?? app.status;
         const embed = new EmbedBuilder()
@@ -80,6 +112,7 @@ export class SchedulerService {
         });
       }
     }
+    console.log(`[cron:applied] 완료 - 총 ${applications.length}건 중 ${changedCount}건 변경`);
   }
 
   @Cron(process.env.CRON_JOBS_SCHEDULE || '0 */2 * * *')

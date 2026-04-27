@@ -9,6 +9,12 @@ export interface ApplicationStatus {
   applied_at?: string;
 }
 
+export interface WantedNotification {
+  text: string;
+  time: string;
+  push_value: string;
+}
+
 const STATUS_SLUGS = ['complete', 'pass', 'hire', 'reject'];
 
 @Injectable()
@@ -66,6 +72,31 @@ export class AppliedService {
           }
         }
         return all;
+      } finally {
+        await page.close();
+      }
+    });
+  }
+
+  async fetchNotifications(since?: string): Promise<WantedNotification[]> {
+    return this.session.withSession(async (context) => {
+      const page = await context.newPage();
+      try {
+        await page.goto('https://www.wanted.co.kr/status/applications/applied', {
+          waitUntil: 'domcontentloaded',
+          timeout: 15_000,
+        });
+        const result: any = await page.evaluate(async () => {
+          const res = await fetch('/api/v1/notifications?limit=20', { credentials: 'include' });
+          if (!res.ok) return null;
+          return res.json();
+        });
+        const notifs: WantedNotification[] = (result?.notifications ?? [])
+          .filter((n: any) => n.push_type === 'application' && n.text)
+          .map((n: any) => ({ text: n.text, time: n.time, push_value: String(n.push_value) }));
+
+        if (!since) return notifs;
+        return notifs.filter((n) => n.time > since);
       } finally {
         await page.close();
       }

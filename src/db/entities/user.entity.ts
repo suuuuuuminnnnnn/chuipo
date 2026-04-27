@@ -35,6 +35,9 @@ export class User {
   @Column({ type: 'text', default: '' })
   alert_channel: string;
 
+  @Column({ type: 'text', nullable: true })
+  last_notif_time: string | null;
+
   @Column({ type: 'text', default: () => "datetime('now')" })
   created_at: string;
 

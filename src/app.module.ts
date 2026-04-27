@@ -7,6 +7,7 @@ import { User } from './db/entities/user.entity';
 import { AppliedJob } from './db/entities/applied-job.entity';
 import { CollectedJob } from './db/entities/collected-job.entity';
 import { BaselineSchema1745718000001 } from './db/migrations/1745718000001-BaselineSchema';
+import { AddLastNotifTime1745718000002 } from './db/migrations/1745718000002-AddLastNotifTime';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { BaselineSchema1745718000001 } from './db/migrations/1745718000001-Basel
       type: 'better-sqlite3',
       database: 'chuipo.db',
       entities: [User, AppliedJob, CollectedJob],
-      migrations: [BaselineSchema1745718000001],
+      migrations: [BaselineSchema1745718000001, AddLastNotifTime1745718000002],
       migrationsTableName: 'typeorm_migrations',
       migrationsRun: true,
       synchronize: false,

@@ -30,7 +30,7 @@ cp .env.example .env
 | `ALERT_CHANNEL_ID` | ✅ | 알림을 받을 Discord 채널 ID |
 | `WANTED_EMAIL` | 선택 | Wanted 계정 이메일 (`!로그인` 대신 자동 로그인용) |
 | `WANTED_PASSWORD` | 선택 | Wanted 계정 비밀번호 |
-| `CRON_APPLIED_SCHEDULE` | 선택 | 지원 현황 크론 스케줄 (기본: `*/30 * * * *`) |
+| `CRON_APPLIED_SCHEDULE` | 선택 | 지원 현황 크론 스케줄 (기본: `*/10 * * * *`) |
 | `CRON_JOBS_SCHEDULE` | 선택 | 공고 수집 크론 스케줄 (기본: `0 */2 * * *`) |
 | `SCORE_THRESHOLD_HIGH` | 선택 | 백엔드 분류 임계값 (기본: `5`) |
 | `SCORE_THRESHOLD_LOW` | 선택 | 거절 분류 임계값 (기본: `-2`) |

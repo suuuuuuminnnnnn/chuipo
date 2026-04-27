@@ -10,6 +10,7 @@ export interface UserSettings {
   exp_max: number;
   paused: number;
   alert_channel: string;
+  last_notif_time?: string;
 }
 
 export interface AppliedJob {

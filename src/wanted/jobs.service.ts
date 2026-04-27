@@ -52,7 +52,13 @@ export class JobsService {
     if (!res.ok) throw new Error(`Wanted API 오류: ${res.status}`);
 
     const json: any = await res.json();
-    if (json.data?.[0]) console.log('[jobs] 샘플 공고 필드:', JSON.stringify(json.data[0]).slice(0, 500));
+    if (json.data?.[0]) {
+      const sample = json.data[0];
+      console.log('[jobs] 샘플 공고 키:', Object.keys(sample).join(', '));
+      console.log('[jobs] annual_from:', sample.annual_from, '| annual_to:', sample.annual_to);
+      const expFields = Object.entries(sample).filter(([k]) => /year|exp|career|annual/i.test(k));
+      if (expFields.length) console.log('[jobs] 경력/연봉 관련 필드:', JSON.stringify(Object.fromEntries(expFields)));
+    }
     return (json.data || []).map((job: any) => ({
       wanted_job_id: job.id,
       position: job.position,
