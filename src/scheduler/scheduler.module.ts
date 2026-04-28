@@ -5,9 +5,10 @@ import { WantedModule } from '../wanted/wanted.module';
 import { ScorerModule } from '../scorer/scorer.module';
 import { BotModule } from '../bot/bot.module';
 import { SchedulerService } from './scheduler.service';
+import { RealtimeService } from './realtime.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), DbModule, WantedModule, ScorerModule, BotModule],
-  providers: [SchedulerService],
+  providers: [SchedulerService, RealtimeService],
 })
 export class SchedulerModule {}

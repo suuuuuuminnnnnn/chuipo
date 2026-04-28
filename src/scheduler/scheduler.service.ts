@@ -242,10 +242,14 @@ export class SchedulerService implements OnModuleInit {
       const reviewCount = userJobs.filter((j) => j.cls === 'review').length;
 
       const embeds = userJobs.slice(0, 10).map(({ job, score, cls }) => {
-        const expText =
-          job.annual_from != null || job.annual_to != null
-            ? `${job.annual_from ?? 0}~${job.annual_to ?? ''}년`
-            : '미공개';
+        const expText = (() => {
+          const from = job.annual_from;
+          const to = job.annual_to;
+          if (from == null && to == null) return '미공개';
+          if (from != null && to == null) return `${from}년 이상`;
+          if (from == null && to != null) return `${to}년 이하`;
+          return `${from}~${to}년`;
+        })();
         return new EmbedBuilder()
           .setTitle(`[${cls.toUpperCase()}] ${job.position}`)
           .setColor(cls === 'backend' ? 0x2ecc71 : 0xf39c12)
