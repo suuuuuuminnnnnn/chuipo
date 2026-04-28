@@ -27,10 +27,32 @@ export class SchedulerService implements OnModuleInit {
     this.scheduleNextAppliedCheck();
   }
 
+  private kstHour(): number {
+    return new Date().getUTCHours() + 9 >= 24
+      ? new Date().getUTCHours() + 9 - 24
+      : new Date().getUTCHours() + 9;
+  }
+
+  private msUntil8amKst(): number {
+    const now = Date.now();
+    const next8amKst = new Date();
+    next8amKst.setUTCHours(23, 0, 0, 0); // 23:00 UTC = 08:00 KST
+    if (next8amKst.getTime() <= now) next8amKst.setUTCDate(next8amKst.getUTCDate() + 1);
+    return next8amKst.getTime() - now;
+  }
+
   private scheduleNextAppliedCheck() {
-    const delay = MIN_APPLIED_MS + Math.random() * (MAX_APPLIED_MS - MIN_APPLIED_MS);
-    const nextMin = Math.round(delay / 60000);
-    console.log(`[cron:applied] 다음 실행까지 ${nextMin}분`);
+    const hour = this.kstHour();
+    const isQuiet = hour >= 21 || hour < 8;
+
+    const delay = isQuiet
+      ? this.msUntil8amKst()
+      : MIN_APPLIED_MS + Math.random() * (MAX_APPLIED_MS - MIN_APPLIED_MS);
+
+    console.log(isQuiet
+      ? `[cron:applied] 취침 시간대 (${hour}시 KST) — 08:00 KST까지 ${Math.round(delay / 60000)}분 대기`
+      : `[cron:applied] 다음 실행까지 ${Math.round(delay / 60000)}분`);
+
     setTimeout(async () => {
       await this.checkApplicationUpdates();
       this.scheduleNextAppliedCheck();
