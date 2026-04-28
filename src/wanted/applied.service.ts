@@ -18,6 +18,16 @@ export interface WantedNotification {
 
 const STATUS_SLUGS = ['complete', 'pass', 'hire', 'reject'];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const BASE_HEADERS = {
+  'User-Agent': UA,
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+  'Referer': 'https://www.wanted.co.kr/',
+  'Origin': 'https://www.wanted.co.kr',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin',
+};
 
 @Injectable()
 export class AppliedService {
@@ -33,22 +43,29 @@ export class AppliedService {
 
   private async wFetch(path: string): Promise<any> {
     const res = await fetch(`https://www.wanted.co.kr${path}`, {
-      headers: {
-        Cookie: this.cookieHeader(),
-        'User-Agent': UA,
-        Referer: 'https://www.wanted.co.kr/',
-      },
+      redirect: 'manual',
+      headers: { ...BASE_HEADERS, Cookie: this.cookieHeader() },
     });
-    if (res.status === 401) throw new Error('SESSION_EXPIRED');
-    if (res.redirected && res.url.includes('id.wanted.co.kr')) throw new Error('SESSION_EXPIRED');
-    if (!res.ok) return null;
+
+    if (res.status === 301 || res.status === 302 || res.status === 303 || res.status === 307) {
+      const loc = res.headers.get('location') ?? '';
+      if (loc.includes('id.wanted.co.kr') || loc.includes('/login')) {
+        throw new Error('SESSION_EXPIRED');
+      }
+      return null;
+    }
+    if (res.status === 401 || res.status === 403) throw new Error('SESSION_EXPIRED');
+    if (!res.ok) {
+      console.warn(`[applied] ${path} → ${res.status}`);
+      return null;
+    }
     return res.json();
   }
 
   async fetchApplications(): Promise<ApplicationStatus[]> {
     if (!this.session.sessionExists()) throw new Error('SESSION_NOT_FOUND');
 
-    const me = await this.wFetch('/api/v4/me');
+    const me = await this.wFetch('/api/v1/me');
     if (!me) throw new Error('SESSION_EXPIRED');
     const userId = me.id;
 

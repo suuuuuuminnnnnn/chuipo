@@ -1,5 +1,4 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { chromium } from 'playwright';
 import WebSocket from 'ws';
 import { TextChannel } from 'discord.js';
 import path from 'path';
@@ -8,6 +7,7 @@ import { SessionService, STATE_FILE, SESSION_DIR } from '../wanted/session.servi
 import { BotService } from '../bot/bot.service';
 
 const STOMP_PARAMS_FILE = path.join(SESSION_DIR, 'stomp-params.json');
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 interface StompParams {
   passcode: string;
@@ -46,82 +46,68 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
   }
 
-  async start() {
-    this.stompParams = this.loadCachedParams() ?? await this.captureStompParams();
+  private cookieHeader(): string {
+    const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+    return (state.cookies as any[])
+      .filter((c) => c.domain.endsWith('wanted.co.kr'))
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+  }
 
-    if (!this.stompParams) {
+  private loadCachedPasscode(): string | null {
+    try {
+      if (!fs.existsSync(STOMP_PARAMS_FILE)) return null;
+      const data = JSON.parse(fs.readFileSync(STOMP_PARAMS_FILE, 'utf-8'));
+      return data?.passcode ?? null;
+    } catch { return null; }
+  }
+
+  async start() {
+    const params = await this.resolveStompParams();
+    if (!params) {
       console.log('[realtime] STOMP 파라미터 획득 실패 — 5분 후 재시도');
       this.reconnectTimer = setTimeout(() => this.start(), 5 * 60 * 1000);
       return;
     }
-
+    this.stompParams = params;
     this.connectWs();
   }
 
-  private loadCachedParams(): StompParams | null {
+  private async resolveStompParams(): Promise<StompParams | null> {
     try {
-      if (!fs.existsSync(STOMP_PARAMS_FILE)) return null;
-      const data = JSON.parse(fs.readFileSync(STOMP_PARAMS_FILE, 'utf-8'));
-      if (data?.passcode && data?.destination) {
-        console.log('[realtime] 캐시에서 STOMP 파라미터 로드');
-        return data as StompParams;
-      }
-    } catch {}
-    return null;
-  }
-
-  private saveCachedParams(params: StompParams) {
-    try {
-      fs.writeFileSync(STOMP_PARAMS_FILE, JSON.stringify(params, null, 2));
-    } catch (err) {
-      console.error('[realtime] STOMP 파라미터 캐시 저장 실패:', err);
-    }
-  }
-
-  private async captureStompParams(): Promise<StompParams | null> {
-    console.log('[realtime] Playwright로 STOMP 파라미터 캡처 중...');
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ storageState: STATE_FILE });
-    const page = await context.newPage();
-
-    try {
-      const params = await new Promise<StompParams | null>((resolve) => {
-        let passcode = '';
-        let resolved = false;
-
-        const done = (val: StompParams | null) => {
-          if (!resolved) { resolved = true; resolve(val); }
-        };
-
-        page.on('websocket', (wsEvent) => {
-          wsEvent.on('framesent', (frame) => {
-            const data = typeof frame.payload === 'string'
-              ? frame.payload
-              : Buffer.from(frame.payload as Buffer).toString();
-
-            if (data.startsWith('CONNECT')) {
-              const m = data.match(/passcode:([^\r\n\0]+)/);
-              if (m) { passcode = m[1].trim(); console.log('[realtime] CONNECT 캡처'); }
-            }
-            if (data.startsWith('SUBSCRIBE') && passcode) {
-              const m = data.match(/destination:([^\r\n\0]+)/);
-              if (m) {
-                console.log('[realtime] SUBSCRIBE 캡처:', m[1].trim());
-                done({ passcode, destination: m[1].trim() });
-              }
-            }
-          });
-        });
-
-        page.goto('https://www.wanted.co.kr/', { waitUntil: 'domcontentloaded', timeout: 15_000 }).catch(() => {});
-        setTimeout(() => done(null), 20_000);
+      // destination: /api/v1/me 에서 user_hash로 실시간 조회
+      const res = await fetch('https://www.wanted.co.kr/api/v1/me', {
+        headers: {
+          Cookie: this.cookieHeader(),
+          'User-Agent': UA,
+          Accept: 'application/json',
+          Referer: 'https://www.wanted.co.kr/',
+        },
       });
+      if (!res.ok) {
+        console.warn('[realtime] /api/v1/me 실패:', res.status);
+        return null;
+      }
+      const me = await res.json();
+      const userHash: string = me?.user_hash;
+      if (!userHash) {
+        console.warn('[realtime] user_hash 없음');
+        return null;
+      }
+      const destination = `/topic/wpoint.${userHash}`;
 
-      if (params) this.saveCachedParams(params);
-      return params;
-    } finally {
-      await page.close().catch(() => {});
-      await browser.close().catch(() => {});
+      // passcode: 캐시 파일에서 로드
+      const passcode = this.loadCachedPasscode();
+      if (!passcode) {
+        console.warn('[realtime] stomp-params.json에 passcode 없음 — npm run wanted:login 재실행 필요');
+        return null;
+      }
+
+      console.log(`[realtime] STOMP 파라미터 준비 완료 → ${destination}`);
+      return { passcode, destination };
+    } catch (err) {
+      console.error('[realtime] resolveStompParams 실패:', err);
+      return null;
     }
   }
 
@@ -132,7 +118,7 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     this.ws = new WebSocket('wss://rtws.wanted.co.kr/ws', {
       headers: {
         Origin: 'https://www.wanted.co.kr',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'User-Agent': UA,
       },
     });
 
@@ -155,7 +141,6 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
         await this.handleStompMessage(data);
       } else if (data.startsWith('ERROR')) {
         console.error('[realtime] STOMP ERROR:', data.substring(0, 300));
-        // 인증 에러면 캐시 삭제 후 재캡처
         if (data.includes('access refused') || data.includes('Not authorized')) {
           fs.rmSync(STOMP_PARAMS_FILE, { force: true });
           this.stompParams = null;
