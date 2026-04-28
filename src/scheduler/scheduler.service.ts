@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EmbedBuilder, TextChannel } from 'discord.js';
 import { DbService } from '../db/db.service';
@@ -9,8 +9,11 @@ import { SessionService } from '../wanted/session.service';
 import { BotService } from '../bot/bot.service';
 import { STATUS_COLORS, STATUS_LABELS } from '../config/status-colors';
 
+const MIN_APPLIED_MS = 10 * 60 * 1000;
+const MAX_APPLIED_MS = 30 * 60 * 1000;
+
 @Injectable()
-export class SchedulerService {
+export class SchedulerService implements OnModuleInit {
   constructor(
     private readonly db: DbService,
     private readonly session: SessionService,
@@ -19,6 +22,20 @@ export class SchedulerService {
     private readonly scorer: ScorerService,
     private readonly bot: BotService,
   ) {}
+
+  onModuleInit() {
+    this.scheduleNextAppliedCheck();
+  }
+
+  private scheduleNextAppliedCheck() {
+    const delay = MIN_APPLIED_MS + Math.random() * (MAX_APPLIED_MS - MIN_APPLIED_MS);
+    const nextMin = Math.round(delay / 60000);
+    console.log(`[cron:applied] 다음 실행까지 ${nextMin}분`);
+    setTimeout(async () => {
+      await this.checkApplicationUpdates();
+      this.scheduleNextAppliedCheck();
+    }, delay);
+  }
 
   private async sendToChannel(payload: { content?: string; embeds?: EmbedBuilder[] }) {
     const channelId = process.env.ALERT_CHANNEL_ID;
@@ -32,7 +49,6 @@ export class SchedulerService {
     }
   }
 
-  @Cron(process.env.CRON_APPLIED_SCHEDULE || '*/10 * * * *')
   async checkApplicationUpdates() {
     const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
     console.log(`[cron:applied] 시작 - ${now}`);
