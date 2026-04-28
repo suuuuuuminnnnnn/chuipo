@@ -66,6 +66,6 @@ export const scoringConfig: ScoringConfig = {
     '프론트엔드',
   ],
 
-  thresholdHigh: Number(process.env.SCORE_THRESHOLD_HIGH) || 5,
+  thresholdHigh: Number(process.env.SCORE_THRESHOLD_HIGH) || 11,
   thresholdLow: Number(process.env.SCORE_THRESHOLD_LOW) || -2,
 };
