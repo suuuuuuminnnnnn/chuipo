@@ -5,6 +5,55 @@ import fs from 'fs';
 
 const SESSION_DIR = path.resolve('.wanted-session');
 const STATE_FILE = path.join(SESSION_DIR, 'state.json');
+const STOMP_PARAMS_FILE = path.join(SESSION_DIR, 'stomp-params.json');
+
+async function captureStompParams(storageStatePath: string): Promise<void> {
+  console.log('STOMP 파라미터 캡처 중...');
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ storageState: storageStatePath });
+  const page = await context.newPage();
+
+  try {
+    const params = await new Promise<{ passcode: string; destination: string } | null>((resolve) => {
+      let passcode = '';
+      let resolved = false;
+
+      const done = (val: { passcode: string; destination: string } | null) => {
+        if (!resolved) { resolved = true; resolve(val); }
+      };
+
+      page.on('websocket', (ws) => {
+        ws.on('framesent', (frame) => {
+          const data = typeof frame.payload === 'string'
+            ? frame.payload
+            : Buffer.from(frame.payload as Buffer).toString();
+
+          if (data.startsWith('CONNECT')) {
+            const m = data.match(/passcode:([^\r\n\0]+)/);
+            if (m) passcode = m[1].trim();
+          }
+          if (data.startsWith('SUBSCRIBE') && passcode) {
+            const m = data.match(/destination:([^\r\n\0]+)/);
+            if (m) done({ passcode, destination: m[1].trim() });
+          }
+        });
+      });
+
+      page.goto('https://www.wanted.co.kr/', { waitUntil: 'domcontentloaded', timeout: 15_000 }).catch(() => {});
+      setTimeout(() => done(null), 20_000);
+    });
+
+    if (params) {
+      fs.writeFileSync(STOMP_PARAMS_FILE, JSON.stringify(params, null, 2));
+      console.log(`STOMP 파라미터 저장 완료: ${STOMP_PARAMS_FILE}`);
+    } else {
+      console.warn('STOMP 파라미터 캡처 실패 (실시간 알림 비활성화됨)');
+    }
+  } finally {
+    await page.close().catch(() => {});
+    await browser.close().catch(() => {});
+  }
+}
 
 async function login() {
   const email = process.env.WANTED_EMAIL;
@@ -50,6 +99,8 @@ async function login() {
   await context.storageState({ path: STATE_FILE });
   console.log(`세션 저장 완료: ${STATE_FILE}`);
   await browser.close();
+
+  await captureStompParams(STATE_FILE);
 }
 
 login().catch((err) => {
